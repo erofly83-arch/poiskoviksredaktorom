@@ -1,0 +1,2431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 Smart Matcher + Редактор синонимов</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+
+  <style>
+/* ===== RESET ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===== BODY & BACKGROUND ===== */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #4f8ef7 0%, #7c3aed 55%, #a21caf 100%);
+  min-height: 100vh;
+  padding: 0 0 40px 0;
+  color: #1c1c1e;
+}
+
+/* ===== GLOBAL NAV ===== */
+.global-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5000;
+  background: linear-gradient(90deg, #3b6fd4 0%, #6d28d9 60%, #9c1ac4 100%);
+  box-shadow: 0 4px 20px rgba(80,0,120,0.35);
+}
+.global-nav__inner {
+  max-width: 100%;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 52px;
+}
+.global-nav__brand {
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 17px;
+  color: #ffffff;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.global-nav__links { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.global-nav__link {
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 650;
+  color: rgba(255,255,255,0.88);
+  background: rgba(255,255,255,0.13);
+  border: 1px solid rgba(255,255,255,0.22);
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: transform .12s ease, background .12s ease;
+}
+.global-nav__link:hover { transform: translateY(-1px); background: rgba(255,255,255,0.24); color: #fff; }
+.global-nav__link.is-active { color: #6d28d9; background: #ffffff; border-color: #ffffff; font-weight: 700; }
+
+/* ===== MAIN WRAPPER ===== */
+.main-wrapper { max-width: 100%; margin: 16px 16px 0; display: flex; flex-direction: column; gap: 14px; }
+
+/* ===== SHARED JSON TOP BAR ===== */
+.json-topbar {
+  background: white;
+  border-radius: 18px;
+  padding: 14px 20px;
+  box-shadow: 0 8px 40px rgba(80,0,120,0.22);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.json-topbar__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #6d28d9;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.json-topbar__sep { width: 1px; height: 28px; background: #ddd6fe; flex-shrink: 0; }
+.json-load-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.json-load-btn:hover { background: #6d28d9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+.json-status {
+  font-size: 12px;
+  color: #8e8e93;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.json-status.ok { color: #34c759; font-weight: 600; }
+.json-status.err { color: #ff3b30; font-weight: 600; }
+.json-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.json-save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(52,199,89,0.45); }
+.json-html-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.json-html-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(109,40,217,0.45); }
+.json-changes-badge {
+  background: #ff9500;
+  color: white;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  display: none;
+}
+.json-changes-badge.show { display: inline-block; }
+
+/* ===== COLLAPSIBLE SECTION ===== */
+.section-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(80,0,120,0.22);
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+  background: #faf8ff;
+  border-bottom: 2px solid #f0ebff;
+  transition: background 0.15s;
+}
+.section-header:hover { background: #f3f0ff; }
+.section-header.collapsed { border-bottom-color: transparent; }
+.section-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1c1c1e;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.3px;
+}
+.section-badge {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.section-toggle {
+  font-size: 18px;
+  color: #a78bfa;
+  transition: transform 0.25s;
+  line-height: 1;
+}
+.section-toggle.rotated { transform: rotate(180deg); }
+.section-body {
+  padding: 20px;
+  transition: all 0.25s;
+}
+.section-body.hidden { display: none; }
+
+/* ===== SMART MATCHER styles ===== */
+.version-badge {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.algo-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.algo-badge {
+  background: #f5f3ff;
+  color: #6d28d9;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #ddd6fe;
+}
+
+/* Upload panel */
+.upload-panel { margin-bottom: 16px; }
+.upload-grid { display: flex; gap: 10px; align-items: stretch; }
+.upload-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px dashed #a78bfa;
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: all 0.25s;
+  cursor: pointer;
+  background: #faf8ff;
+}
+.upload-box:hover { border-color: #7c3aed; background: #f5f3ff; }
+.upload-box.loaded { border-color: #34c759; background: #f0fdf4; }
+.upload-icon { font-size: 24px; flex-shrink: 0; line-height: 1; }
+.upload-info { flex: 1; min-width: 0; }
+.upload-title { font-size: 13px; font-weight: 700; color: #1c1c1e; margin-bottom: 2px; }
+.upload-desc { font-size: 11px; color: #8e8e93; line-height: 1.3; }
+.upload-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+.format-badges { display: flex; gap: 4px; }
+.format-badge { background: #f5f3ff; color: #7c3aed; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid #ddd6fe; }
+.upload-btn {
+  background: #7c3aed;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.upload-btn:hover { background: #6d28d9; transform: translateY(-1px); }
+.upload-status { font-size: 11px; color: #34c759; font-weight: 600; white-space: nowrap; text-align: right; }
+input[type="file"] { display: none; }
+
+/* Stats bar */
+.stats-bar {
+  background: #faf8ff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1.5px solid #ddd6fe;
+  display: none;
+}
+.stats-bar.show { display: block; }
+.stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.stat-item {
+  text-align: center;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.stat-item:hover { background: #f5f3ff; border-color: #7c3aed; transform: translateY(-2px); }
+.stat-item.active { background: #f5f3ff; border-color: #7c3aed; }
+.stat-value { font-size: 30px; font-weight: 700; color: #7c3aed; margin-bottom: 4px; }
+.stat-label { font-size: 11px; color: #8e8e93; text-transform: uppercase; font-weight: 600; }
+
+/* Progress */
+.progress-bar { display: none; margin-bottom: 16px; }
+.progress-bar.show { display: block; }
+.progress-text { font-size: 14px; color: #1c1c1e; margin-bottom: 10px; font-weight: 600; text-align: center; }
+.progress-track { height: 8px; background: #e5e5ea; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #6d28d9 0%, #7c3aed 100%); transition: width 0.3s; width: 0%; }
+
+/* Results panel */
+.results-panel { display: none; }
+.results-panel.show { display: block; }
+.results-header { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #f0ebff; }
+.results-title { font-size: 18px; font-weight: 600; color: #1c1c1e; }
+.results-subtitle { font-size: 13px; color: #8e8e93; margin-top: 4px; }
+.results-list { height: 560px; overflow-y: auto; padding-right: 4px; }
+.results-list::-webkit-scrollbar { width: 6px; }
+.results-list::-webkit-scrollbar-track { background: #f5f3ff; border-radius: 4px; }
+.results-list::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 4px; }
+
+/* Audit results scroll */
+
+/* Editor groups scroll */
+#groupsContainer { max-height: 560px; overflow-y: auto; padding-right: 4px; }
+#groupsContainer::-webkit-scrollbar { width: 6px; }
+#groupsContainer::-webkit-scrollbar-track { background: #f5f3ff; border-radius: 4px; }
+#groupsContainer::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 4px; }
+
+/* Result cards */
+/* ===== RESULT CARDS — compact row-based diff ===== */
+.result-card {
+  border: 1.5px solid #ddd6fe;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 7px;
+  transition: all 0.15s;
+  cursor: pointer;
+  background: #fff;
+}
+.result-card:hover { border-color: #7c3aed; box-shadow: 0 3px 10px rgba(124,58,237,0.12); transform: translateY(-1px); }
+.result-card.high-match  { border-color: #34c759; background: #f8fff9; }
+.result-card.medium-match{ border-color: #ff9500; background: #fffcf5; }
+.result-card.skipped-card{ border-color: #c4b5fd; background: #f9f8ff; opacity:.85; }
+.result-card.review-card { border-color: #af52de; background: #fdf8ff; }
+
+.card-header { display:flex; align-items:center; gap:6px; margin-bottom:7px; flex-wrap:wrap; }
+.card-left { display:flex; align-items:center; gap:5px; flex:1; min-width:0; }
+.similarity-badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:9px; font-size:12px; font-weight:800; color:white; flex-shrink:0; }
+.similarity-high   { background:#34c759; }
+.similarity-medium { background:#ff9500; }
+.similarity-skip   { background:#a78bfa; }
+.similarity-review { background:#af52de; }
+.match-tags { display:flex; gap:3px; flex-wrap:wrap; }
+.match-tag { background:#f5f3ff; color:#7c3aed; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:600; border:1px solid #ddd6fe; }
+.action-badge { padding:2px 9px; border-radius:9px; font-size:11px; font-weight:700; flex-shrink:0; white-space:nowrap; }
+.action-synonym { background:#ff9500; color:white; }
+.action-main    { background:#7c3aed; color:white; }
+.action-skip    { background:#a78bfa; color:white; }
+.action-review  { background:#af52de; color:white; }
+.action-merge   { background:#0ea5e9; color:white; }
+
+/* comparison table — 2 rows stacked */
+.cmp-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.cmp-table td { padding:4px 6px; vertical-align:middle; overflow:hidden; }
+.cmp-table tr.cmp-row1 { border-bottom:1px dashed #ede9fe; }
+.cmp-col-src  { width:150px; }
+.cmp-col-name { }
+.cmp-col-bc   { width:128px; text-align:right; }
+.cmp-src-label { font-size:10px; font-weight:700; color:#8e8e93; text-transform:uppercase; letter-spacing:.3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+.cmp-row1 .cmp-src-label { color:#ff9500; }
+.cmp-row2 .cmp-src-label { color:#34c759; }
+.cmp-name-text { font-size:13px; font-weight:700; color:#1c1c1e; line-height:1.3; text-transform:uppercase; word-break:break-word; }
+.cmp-bc-text { font-family:'Courier New',monospace; font-size:11px; font-weight:700; color:#7c3aed; }
+
+/* diff highlights */
+.tok-match { background:#d1fadf; color:#166534; border-radius:3px; padding:0 2px; font-weight:800; }
+.tok-diff  { background:#ffe4ec; color:#be123c; border-radius:3px; padding:0 2px; }
+.highlight { background:#d1fadf; padding:0 2px; border-radius:3px; font-weight:800; color:#166534; }
+
+.score-details { margin-top:6px; padding-top:5px; border-top:1px solid #ede9fe; font-size:10px; color:#8e8e93; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.score-item { display:inline-flex; align-items:center; gap:3px; background:#f5f3ff; padding:2px 6px; border-radius:5px; }
+.score-icon { font-size:10px; }
+
+.candidates-section { margin-top:7px; border-top:1px dashed #ddd6fe; padding-top:7px; }
+.candidates-title { font-size:10px; font-weight:700; color:#8e8e93; text-transform:uppercase; margin-bottom:5px; }
+.candidate-item { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; margin-bottom:4px; cursor:pointer; border:1.5px solid transparent; transition:all 0.15s; background:#f5f3ff; }
+.candidate-item:hover { border-color:#7c3aed; background:#ede9fe; }
+.candidate-item.selected { border-color:#34c759; background:#f0fdf4; }
+.candidate-score { font-size:11px; font-weight:700; color:white; padding:1px 6px; border-radius:6px; min-width:34px; text-align:center; flex-shrink:0; }
+.candidate-name { font-size:12px; font-weight:600; color:#1c1c1e; flex:1; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.candidate-src  { font-size:9px; color:#a78bfa; white-space:nowrap; flex-shrink:0; }
+.candidate-bc   { font-size:10px; color:#7c3aed; font-family:monospace; flex-shrink:0; }
+.select-candidate-btn { background:#7c3aed; color:white; border:none; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; flex-shrink:0; }
+.select-candidate-btn:hover { background:#6d28d9; }
+
+.matcher-empty { text-align:center; padding:50px 20px; color:#8e8e93; }
+.matcher-empty-icon { font-size:52px; margin-bottom:12px; }
+
+.skip-reason-box { border-radius:8px; padding:6px 10px; margin-bottom:7px; font-size:11px; font-weight:700; display:flex; flex-direction:column; gap:3px; }
+.skip-reason-box.is-main    { background:#f5f3ff; border:1px solid #c4b5fd; color:#6d28d9; }
+.skip-reason-box.is-synonym { background:#fdf4ff; border:1px solid #e9d5ff; color:#7b1fa2; }
+.skip-reason-detail { font-size:10px; font-weight:400; opacity:.85; font-family:monospace; word-break:break-all; }
+.tag-rebrand { background:#fff3e0; color:#bf360c; border:1px solid #ffb74d; padding:1px 6px; border-radius:6px; font-size:10px; font-weight:700; }
+.weight-warning { display:inline-flex; align-items:center; gap:4px; background:#fff3cd; border:1px solid #ffc107; border-radius:5px; padding:2px 6px; font-size:10px; color:#856404; font-weight:600; }
+
+/* ===== EDITOR styles ===== */
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+  background: #f5f3ff;
+  margin-bottom: 14px;
+}
+.editor-controls { display: flex; gap: 6px; flex-wrap: nowrap; margin: 0; flex: 0 0 auto; }
+.btn {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  transition: all 0.18s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  height: 32px;
+}
+.btn-primary { background: #1a73e8; color: white; }
+.btn-primary:hover { background: #1558c0; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(26,115,232,0.35); }
+.btn-success { background: #1a73e8; color: white; }
+.btn-success:hover { background: #1558c0; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(26,115,232,0.35); }
+.btn-warning { background: #ff9500; color: white; }
+.btn-warning:hover { background: #e08600; transform: translateY(-1px); }
+.btn-danger { background: #e11d48; color: white; }
+.btn-danger:hover { background: #be123c; transform: translateY(-1px); }
+.btn-secondary { background: #ffffff; color: #1a73e8; border: 1.5px solid #c4b5fd; }
+.btn-secondary:hover { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+.btn:disabled { background: #e5e5ea; color: #aeaeb2; cursor: not-allowed; transform: none; box-shadow: none; border-color: #e5e5ea; }
+
+/* Info cards */
+.editor-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.info-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 14px; padding: 12px 16px; color: white; }
+.info-card:nth-child(2) { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.info-card:nth-child(3) { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.info-card:nth-child(4) { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.info-value { font-size: 22px; font-weight: 700; margin-bottom: 2px; letter-spacing: -0.5px; }
+.info-label { font-size: 11px; opacity: 0.9; font-weight: 500; }
+
+/* Search */
+.search-wide {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #c4b5fd;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #faf8ff;
+  transition: all 0.2s;
+  margin: 0 0 14px;
+}
+.search-wide:focus { outline: none; border-color: #7c3aed; background: #f3f0ff; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+/* Grid */
+.rows-wrap { width: 100%; overflow-x: auto; }
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 2fr 1.1fr 44px 110px;
+  gap: 8px;
+  align-items: center;
+  min-width: 1180px;
+}
+.editor-grid > * { min-width: 0; }
+
+/* Inputs */
+.inp { height: 28px; padding: 1px 10px; border: 1.5px solid #c4b5fd; border-radius: 8px; font-size: 12px; font-family: inherit; background: #faf8ff; min-width: 0; transition: all 0.15s; }
+.inp:focus { outline: none; border-color: #7c3aed; background: #f3f0ff; box-shadow: 0 0 0 2px rgba(124,58,237,0.1); }
+.inp-mono { font-family: "Courier New", monospace; font-weight: 700; letter-spacing: 0.2px; }
+.inp-name { font-weight: 400; }
+
+/* Barcode cell */
+.main-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.main-cell .inp { flex: 1 1 auto; min-width: 0; }
+.loupe-link {
+  width: 24px; min-width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #c4b5fd; border-radius: 8px;
+  background: #f5f3ff; color: #7c3aed;
+  text-decoration: none; font-size: 12px; line-height: 1; user-select: none;
+}
+.loupe-link:hover { background: #ede9fe; border-color: #7c3aed; }
+
+/* Synonyms cell */
+.synonyms-cell {
+  display: flex; gap: 6px; align-items: center;
+  flex-wrap: nowrap; overflow-x: auto;
+  padding: 1px 2px; height: 28px; width: 100%; min-width: 0;
+}
+.synonym-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; height: 22px;
+  background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 999px;
+  font-size: 12px; font-family: "Courier New", monospace;
+  white-space: nowrap; flex: 0 0 auto; color: #1c1c1e;
+}
+.synonym-pill.syn-link { cursor: pointer; }
+.synonym-pill.syn-link:hover { background: #ddd6fe; border-color: #a78bfa; }
+.editor-row.has-conflict .synonym-pill { background: #ffe6e6; border-color: #e11d48; }
+.synonym-remove { border: none; background: none; color: #e11d48; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; height: 16px; }
+.synonym-remove:hover { color: #be123c; }
+
+/* Row buttons */
+.btn-disk { width: 44px; min-width: 44px; padding: 0; justify-content: center; border-radius: 9px; height: 28px; font-size: 13px; font-weight: 700; }
+.btn-del { height: 28px; border-radius: 9px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; }
+
+/* New group card */
+.new-group { background: #f5f3ff; border: 2px dashed #a78bfa; border-radius: 16px; padding: 12px; margin-bottom: 12px; transition: all 0.2s; }
+.new-group:hover { border-color: #7c3aed; }
+
+/* Group rows */
+.editor-row { background: #faf8ff; border-radius: 14px; padding: 8px 12px; border: 1.5px solid #ddd6fe; transition: all .15s; margin-bottom: 8px; }
+.editor-row:hover { border-color: #a78bfa; background: #f5f3ff; }
+.editor-row.has-conflict { border-color: #e11d48; background: #fff5f5; }
+
+/* Editor empty state */
+.editor-empty { text-align: center; padding: 40px 20px; color: #8e8e93; }
+.editor-empty-icon { font-size: 48px; margin-bottom: 12px; }
+.editor-empty h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #1c1c1e; }
+.editor-empty p { font-size: 13px; }
+
+/* ===== MODAL ===== */
+.modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(80,0,120,0.35); z-index: 1000;
+  display: none; align-items: center; justify-content: center; padding: 16px;
+}
+.modal.show { display: flex; }
+.modal-content { background: white; border-radius: 16px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(80,0,120,0.28); }
+.modal-header { padding: 12px 16px; border-bottom: 1px solid #ddd6fe; display: flex; justify-content: space-between; align-items: center; background: #f5f3ff; border-radius: 16px 16px 0 0; }
+.modal-title { font-size: 14px; font-weight: 700; color: #6d28d9; }
+.modal-close { background: none; border: none; font-size: 20px; color: #8e8e93; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.15s; }
+.modal-close:hover { background: #ede9fe; color: #7c3aed; }
+.modal-body { padding: 14px 16px; }
+
+/* action banner */
+.action-info-compact { border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; font-weight: 700; border-left: 3px solid #ffc107; background: #fff9e6; color: #856404; }
+.action-info-compact.main { background: #f5f3ff; border-left-color: #7c3aed; color: #6d28d9; }
+.action-info-compact.merge { background: #e0f2fe; border-left-color: #0ea5e9; color: #075985; }
+
+/* sim row */
+.modal-sim-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.modal-sim-pct { font-size: 22px; font-weight: 800; color: white; background: #34c759; border-radius: 10px; padding: 4px 12px; flex-shrink: 0; }
+.modal-sim-pct.med { background: #ff9500; }
+.modal-sim-pct.low { background: #af52de; }
+
+/* two-column in modal */
+.modal-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.modal-col { background: #f8f7ff; border-radius: 8px; padding: 8px 10px; border-left: 3px solid #7c3aed; }
+.modal-col.col-price { border-left-color: #ff9500; }
+.modal-col.col-json  { border-left-color: #34c759; }
+.modal-col-src { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #a78bfa; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-col-bc { font-family: monospace; font-size: 11px; font-weight: 700; color: #7c3aed; margin-bottom: 3px; }
+.modal-col-name { font-size: 12px; font-weight: 700; color: #1c1c1e; text-transform: uppercase; line-height: 1.3; word-break: break-word; }
+.modal-col-norm { font-size: 9px; color: #aaa; font-family: monospace; margin-top: 3px; word-break: break-word; }
+
+.modal-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding: 12px 16px; border-top: 1px solid #ddd6fe; }
+.modal-btn { padding: 10px; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.modal-btn.cancel { background: #f5f3ff; color: #7c3aed; border: 1.5px solid #ddd6fe; }
+.modal-btn.cancel:hover { background: #ede9fe; }
+.modal-btn.confirm { background: #34c759; color: white; }
+.modal-btn.confirm:hover { background: #28a745; transform: translateY(-1px); }
+
+/* similarity-info-compact (legacy compat) */
+.similarity-info-compact { display: none; }
+.similarity-percent-compact { display: none; }
+.similarity-text-compact { display: none; }
+.product-compact { display: none; }
+
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .upload-grid { flex-direction: column; }
+  .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+  .modal-actions { grid-template-columns: 1fr; }
+  .main-wrapper { margin: 10px 8px 0; }
+}
+:root { --global-nav-h: 52px; }
+  </style>
+</head>
+
+<body>
+<header class="global-nav">
+  <div class="global-nav__inner">
+    <a class="global-nav__brand" href="https://erofly83-arch.github.io/pricematcher/">Навигатор</a>
+    <nav class="global-nav__links" aria-label="Навигация по приложениям">
+      <a class="global-nav__link" href="https://erofly83-arch.github.io/synonyms/" data-match="/synonyms/">Редактор JSON</a>
+      <a class="global-nav__link" href="https://erofly83-arch.github.io/pricematcher/" data-match="/pricematcher/">Мониторинг</a>
+      <a class="global-nav__link" href="https://erofly83-arch.github.io/obrezatel/" data-match="/obrezatel/">Обрезатель</a>
+      <a class="global-nav__link" href="https://erofly83-arch.github.io/sininimfinder/" data-match="/sininimfinder/">Поиск синонимов</a>
+    </nav>
+  </div>
+</header>
+
+<div class="main-wrapper">
+
+  <!-- ========== SHARED JSON TOP BAR ========== -->
+  <div class="json-topbar">
+    <div class="json-topbar__title">📦 База синонимов</div>
+    <span style="font-size:11px;color:#a78bfa;font-weight:600;">только JSON</span>
+    <div class="json-topbar__sep"></div>
+    <button class="json-load-btn" onclick="document.getElementById('globalJsonInput').click()">
+      📂 Загрузить JSON
+    </button>
+    <input type="file" id="globalJsonInput" accept=".json">
+    <span class="json-status" id="globalJsonStatus">Файл не загружен</span>
+    <span class="json-changes-badge" id="globalChangesBadge">0 изм.</span>
+    <button class="json-save-btn" id="globalSaveBtn" onclick="saveSharedData()">
+      💾 Сохранить JSON
+    </button>
+    <button class="json-html-btn" onclick="saveAsHtml()">
+      📄 Сохранить приложение
+    </button>
+  </div>
+
+  <!-- ========== SECTION 1: ПОИСК НОВЫХ ГРУПП И СИНОНИМОВ ========== -->
+  <div class="section-card">
+    <div class="section-header collapsed" id="matcherHeader" onclick="toggleSection('matcher')">
+      <div class="section-title">
+        🎯 Поиск новых групп и синонимов
+        <span class="section-badge">V4.1</span>
+      </div>
+      <div style="flex:1;"></div>
+      <div class="section-toggle" id="matcherToggle">▲</div>
+    </div>
+    <div class="section-body hidden" id="matcherBody">
+
+      <!-- Multi-file upload + JSON status -->
+      <div class="upload-panel">
+        <div class="upload-grid">
+          <div class="upload-box" id="multiPriceBox" onclick="document.getElementById('multiPriceInput').click()">
+            <div class="upload-icon">📂</div>
+            <div class="upload-info">
+              <div class="upload-title">Прайсы для сравнения</div>
+              <div class="upload-desc">CSV / XLSX · Можно выбрать несколько файлов</div>
+              <div class="upload-status" id="multiPriceStatus"></div>
+            </div>
+            <div class="upload-right">
+              <div class="format-badges">
+                <span class="format-badge">CSV</span>
+                <span class="format-badge">XLSX</span>
+              </div>
+              <button class="upload-btn">📂 Выбрать файлы</button>
+            </div>
+            <input type="file" id="multiPriceInput" accept=".csv,.xlsx,.xls" multiple>
+          </div>
+          <div class="upload-box" id="jsonStatusBox" style="cursor:default;max-width:220px;flex:0 0 auto;">
+            <div class="upload-icon">📦</div>
+            <div class="upload-info">
+              <div class="upload-title">База JSON</div>
+              <div class="upload-status" id="matcherJsonStatus" style="margin-top:4px;font-size:11px;color:#8e8e93;">Не загружена</div>
+              <div style="font-size:10px;color:#a78bfa;margin-top:2px;">Загрузите JSON в панели выше</div>
+            </div>
+          </div>
+        </div>
+        <!-- Загруженные файлы -->
+        <div id="priceFilesList" style="display:none;margin-top:10px;padding:0 4px;"></div>
+      </div>
+
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-text" id="progressText">Загрузка...</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+
+      <div class="stats-bar" id="statsBar">
+        <div class="stats-grid" style="grid-template-columns: repeat(4,1fr);">
+          <div class="stat-item active" onclick="filterByView('all')" data-view="all">
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-label">📋 Все совпадения</div>
+          </div>
+          <div class="stat-item" onclick="filterByView('samebc')" data-view="samebc">
+            <div class="stat-value" id="statSameBC">0</div>
+            <div class="stat-label">🔁 Одинаковые ШК</div>
+          </div>
+          <div class="stat-item" onclick="filterByView('known')" data-view="known">
+            <div class="stat-value" id="statKnown">0</div>
+            <div class="stat-label">🔗 Уже в базе JSON</div>
+          </div>
+          <div class="stat-item" onclick="filterByView('added')" data-view="added">
+            <div class="stat-value" id="statAdded">0</div>
+            <div class="stat-label">✅ Добавлено</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-panel" id="resultsPanel">
+        <div class="results-header">
+          <div class="results-title" id="resultsTitle">📊 Результаты матчинга</div>
+          <div class="results-subtitle" id="resultsSubtitle"></div>
+        </div>
+        <div class="results-list" id="resultsList">
+          <div class="matcher-empty">
+            <div class="matcher-empty-icon">🔍</div>
+            <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Загрузите прайсы</div>
+            <div>Выберите один или несколько прайсов — система найдёт совпадения по названиям и предложит добавить пары в JSON базу</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /matcherBody -->
+  </div><!-- /section-card -->
+
+  <!-- ========== SECTION 2: EDITOR ========== -->
+  <div class="section-card">
+    <div class="section-header collapsed" id="editorHeader" onclick="toggleSection('editor')">
+      <div class="section-title">🔗 Редактор синонимов штрихкодов</div>
+      <div class="section-toggle" id="editorToggle">▲</div>
+    </div>
+    <div class="section-body hidden" id="editorBody">
+
+      <!-- Editor toolbar (Excel controls only, JSON is global) -->
+      <div class="editor-topbar">
+        <div class="editor-controls">
+          <button id="exportExcelBtn" class="btn btn-secondary" disabled title="Скачать Excel">📊 Excel</button>
+          <button id="importExcelBtn" class="btn btn-secondary" title="Импорт Excel">📥 Excel</button>
+          <button id="clearBtn" class="btn btn-danger" disabled title="Очистить всё">🗑 Очистить</button>
+          <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;">
+        </div>
+      </div>
+
+      <div id="editorInfoPanel" class="editor-info-grid" style="display:none;">
+        <div class="info-card"><div class="info-value" id="groupCount">0</div><div class="info-label">Групп</div></div>
+        <div class="info-card"><div class="info-value" id="synonymCount">0</div><div class="info-label">Синонимов</div></div>
+        <div class="info-card"><div class="info-value" id="barcodeCount">0</div><div class="info-label">ШК уник.</div></div>
+        <div class="info-card"><div class="info-value" id="conflictCount">0</div><div class="info-label">Конфликтов</div></div>
+      </div>
+
+      <input type="text" id="searchInput" class="search-wide" placeholder="Поиск по ШК / названию / синонимам..." disabled>
+
+      <!-- New group -->
+      <div class="new-group">
+        <div class="rows-wrap">
+          <div class="editor-grid">
+            <input class="inp inp-name" type="text" id="newGroupName" placeholder="Категория (название)">
+            <input class="inp inp-mono" type="text" id="newMainBarcode" placeholder="Главный ШК">
+            <input class="inp inp-mono" type="text" id="newSynonyms" placeholder="Синонимы через запятую">
+            <div></div>
+            <button id="createGroupBtn" class="btn btn-success btn-disk" title="Сохранить">💾</button>
+            <button id="clearNewGroupBtn" class="btn btn-secondary btn-del" title="Сброс">Сброс</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Groups list -->
+      <div class="rows-wrap">
+        <div id="groupsContainer"></div>
+      </div>
+
+    </div><!-- /editorBody -->
+  </div><!-- /section-card -->
+
+</div><!-- /main-wrapper -->
+
+<!-- CONFIRM MODAL -->
+<div class="modal" id="confirmModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">🔗 Подтверждение</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-sim-row">
+        <div class="modal-sim-pct" id="modalSimilarity">0%</div>
+        <div class="action-info-compact" id="actionInfoCompact" style="margin:0;flex:1;">
+          <span id="actionTextCompact"></span>
+        </div>
+      </div>
+      <table class="cmp-table" style="margin-top:4px;">
+        <tr class="cmp-row1">
+          <td class="cmp-col-src"><span class="cmp-src-label" id="modalLabel1">📄</span></td>
+          <td class="cmp-col-name"><span class="cmp-name-text" id="modalPriceName"></span></td>
+          <td class="cmp-col-bc"><span class="cmp-bc-text" id="modalPriceBarcode"></span></td>
+        </tr>
+        <tr class="cmp-row2">
+          <td class="cmp-col-src"><span class="cmp-src-label" id="modalLabel2">🏪</span></td>
+          <td class="cmp-col-name"><span class="cmp-name-text" id="modalMainName"></span></td>
+          <td class="cmp-col-bc"><span class="cmp-bc-text" id="modalMainBarcode"></span></td>
+        </tr>
+      </table>
+      <div id="modalPriceNorm" style="display:none;"></div>
+      <div id="modalMainNorm" style="display:none;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Отмена</button>
+      <button class="modal-btn confirm" id="confirmBtn" onclick="confirmAction()"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded data for self-save HTML -->
+<script id="embeddedData" type="application/json"></script>
+
+<script>
+// =============================================================================
+// ОБЩЕЕ СОСТОЯНИЕ — единый источник истины для обоих блоков
+// =============================================================================
+let sharedData = {};       // { barcode: [name, ...synonyms], ... }
+let changesCount = 0;      // счётчик подтверждённых изменений в Smart Matcher
+
+// Smart Matcher specific state
+let allPricesFiles = []; // [{name, data}] — все загруженные прайсы
+let allMatches = [];
+let matchResults = [];
+let highMatches = [];
+let reviewItems = [];
+let addedItems = []; // подтверждённые пары
+let pendingAction = null;
+let currentView = 'high';
+
+// Editor specific state
+let editorConflicts = new Set();
+let editorSearchQuery = "";
+
+const BARCODE_COLS = ['штрихкод','штрих-код','barcode','ШК','шк','код','ean','Штрихкод'];
+const NAME_COLS = ['название','наименование','name','товар','продукт','Название','Наименование','Наим','наим'];
+const SYNONYM_COLS = ['синонимы','synonyms','синоним','synonym','Синонимы'];
+
+const SIMILARITY_THRESHOLD = 40;
+const REVIEW_THRESHOLD = 60;  // 60–84% — на проверке
+const HIGH_THRESHOLD = 85;    // ≥85% — высокое совпадение
+
+
+// =============================================================================
+// ГЛОБАЛЬНАЯ ЗАГРУЗКА / СОХРАНЕНИЕ JSON
+// =============================================================================
+document.getElementById('globalJsonInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const fn = file.name.toLowerCase();
+    if (!fn.endsWith('.json')) {
+      throw new Error('База синонимов — только JSON. Для прайсов используйте блок Smart Matcher');
+    }
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Некорректный JSON');
+
+    sharedData = parsed;
+    changesCount = 0;
+
+    const count = Object.keys(sharedData).length;
+    setGlobalJsonStatus('ok', `✓ ${count} записей из "${file.name}"`);
+    document.getElementById('globalChangesBadge').classList.remove('show');
+
+    onSharedDataLoaded();
+  } catch (err) {
+    setGlobalJsonStatus('err', `Ошибка: ${err.message}`);
+    alert('Ошибка загрузки: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+function setGlobalJsonStatus(type, text) {
+  const el = document.getElementById('globalJsonStatus');
+  el.textContent = text;
+  el.className = 'json-status' + (type ? ' ' + type : '');
+}
+
+function onSharedDataLoaded() {
+  const keys = Object.keys(sharedData);
+  const groupCount = keys.length;
+  let synCount = 0;
+  for (const k of keys) {
+    const arr = sharedData[k];
+    if (Array.isArray(arr)) synCount += Math.max(0, arr.length - 1);
+  }
+  const statusEl = document.getElementById('matcherJsonStatus');
+  statusEl.textContent = `✓ ${groupCount} групп, ${synCount} синонимов`;
+  statusEl.style.color = '#34c759';
+  document.getElementById('jsonStatusBox').classList.add('loaded');
+
+  editorRefreshDerivedState();
+  if (allPricesFiles.length > 0) performEnhancedMatching();
+  editorRefreshDerivedState();
+}
+
+async function saveSharedData() {
+  const json = JSON.stringify(sharedData, null, 2);
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const fileName = `synonyms_${ts}.json`;
+  const blob = new Blob([json], { type: 'application/json' });
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'JSON файл', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      const count = Object.keys(sharedData).length;
+      setGlobalJsonStatus('ok', `✓ JSON сохранён: ${count} записей`);
+      changesCount = 0;
+      document.getElementById('globalChangesBadge').classList.remove('show');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      // fallback to legacy download
+    }
+  }
+  // Legacy fallback
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+async function saveAsHtml() {
+  // Вписываем sharedData в <script id="embeddedData">
+  const el = document.getElementById('embeddedData');
+  if (!el) { alert('Ошибка: не найден блок embeddedData'); return; }
+
+  // Экранируем закрывающий тег скрипта внутри JSON чтобы не сломать парсер
+  const closeTag = '</' + 'script';
+  const json = JSON.stringify(sharedData, null, 2).replace(new RegExp(closeTag, 'gi'), '<\\/script');
+  el.textContent = json;
+
+  // Снимаем disabled с кнопки сохранения чтобы он попал в аутпут активным
+  const saveBtn = document.getElementById('globalSaveBtn');
+  const wasDis = saveBtn.disabled;
+  saveBtn.disabled = false;
+
+  const htmlStr = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+  // Восстанавливаем
+  saveBtn.disabled = wasDis;
+
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const fileName = `synonyms_app_${ts}.html`;
+  const blob = new Blob([htmlStr], { type: 'text/html;charset=utf-8' });
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'HTML приложение', accept: { 'text/html': ['.html'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      setGlobalJsonStatus('ok', `✓ Приложение сохранено: ${fileName}`);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  // Legacy fallback
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  setGlobalJsonStatus('ok', `✓ Приложение сохранено: ${fileName}`);
+}
+
+function notifyChange() {
+  changesCount++;
+  const badge = document.getElementById('globalChangesBadge');
+  badge.textContent = `+${changesCount} изм.`;
+  badge.classList.add('show');
+}
+
+// =============================================================================
+// СВОРАЧИВАЕМЫЕ СЕКЦИИ
+// =============================================================================
+function toggleSection(id) {
+  const body = document.getElementById(id + 'Body');
+  const toggle = document.getElementById(id + 'Toggle');
+  const header = document.getElementById(id + 'Header');
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  toggle.classList.toggle('rotated', isHidden);
+  header.classList.toggle('collapsed', !isHidden);
+}
+
+// =============================================================================
+// УНИВЕРСАЛЬНЫЙ ДВИЖОК МАТЧИНГА V4
+// =============================================================================
+
+// ── ФОНЕТИЧЕСКАЯ ТРАНСЛИТЕРАЦИЯ Latin → Cyrillic ──
+// Принципы:
+//   1. Многосимвольные паттерны обрабатываются раньше одиночных (порядок важен)
+//   2. Позиционные правила: 'u' между согласными → 'а' (bubble→бабблс)
+//   3. Специальные окончания слов: -bles/-les/-es/-e (silent)
+//   4. c/g зависят от следующей буквы (перед e/i → мягкие)
+//
+// Примеры: halls→холс, bubbles→бабблс, speed→спид, night→найт, action→экшн
+
+// Слово-конечные паттерны применяются ПОСЛЕ _translitWord (результат уже кириллица)
+const _WE = [
+  [/блес$/, 'блс'],    // bubbles→бабблс, troubles→трабблс
+  [/тлес$/, 'тлс'],    // bottles→ботлс, rattles→раттлс
+  [/плес$/, 'плс'],    // apples→эпплс
+  [/лес$/, 'лс'],      // любые -les в конце
+  [/([бвгджзклмнпрстфхцчшщ])ес$/, '$1с'],  // consonant+es → consonant+с (loves→лавс)
+  [/([бвгджзклмнпрстфхцчшщ])е$/, '$1'],    // немая -e в конце (snake→снэйк)
+];
+
+const _PP = [
+  // 4 символа
+  ['ight', 'айт'],   // night, light, right
+  ['tion', 'шн'],    // action→акшн, nation→нейшн
+  ['ough', 'оф'],    // tough, rough, enough
+  // 3 символа
+  ['sch',  'ш'],     // Bosch→бош, Schulz→шульз (немецкий/английский sch = ш, не щ)
+  ['tch',  'ч'],     // watch, catch, match
+  ['all',  'ол'],    // halls→холс, ball→бол, fall→фол
+  ['ing',  'инг'],   // spring→спринг, ring→ринг
+  ['igh',  'ай'],    // high→хай, sigh→сай
+  ['ull',  'ул'],    // pull, bull, full
+  ['arr',  'ар'],    // arrow, barrel
+  ['oor',  'ур'],    // floor, door
+  ['alk',  'ок'],    // walk→вок, talk→ток
+  ['awn',  'он'],    // dawn→дон, lawn→лон
+  // 2 символа — диграфы согласных
+  ['sh',   'ш'],     // shell→шелл, show→шоу
+  ['ch',   'ч'],     // champion→чемпион, check→чек
+  ['zh',   'ж'],
+  ['kh',   'х'],
+  ['ph',   'ф'],     // phone→фон, photo→фото
+  ['th',   'т'],     // thermos→термос, thunder→тандер
+  ['wh',   'в'],     // white→вайт, wheel→вил
+  ['ck',   'к'],     // black→блэк, rock→рок
+  ['qu',   'кв'],    // quick→квик, queen→квин
+  ['ts',   'ц'],
+  ['tz',   'ц'],
+  // 2 символа — гласные сочетания
+  ['oo',   'у'],     // cool→кул, boost→буст, moon→мун
+  ['ee',   'и'],     // speed→спид, sweet→свит, beer→бир
+  ['ea',   'и'],     // cream→крим, clean→клин, tea→ти
+  ['ui',   'у'],     // juice→джус, fruit→фрут, suit→сут
+  ['ew',   'ю'],     // new→ню, brew→брю, few→фю
+  ['aw',   'о'],     // law→ло, draw→дро, saw→со
+  ['ow',   'оу'],    // show→шоу, know→ноу, low→лоу
+  ['oi',   'ой'],    // oil→ойл, coin→койн
+  ['oy',   'ой'],    // boy→бой, toy→той
+  ['ai',   'ей'],    // rain→рейн, paint→пейнт
+  ['ay',   'ей'],    // day→дей, play→плей
+  ['au',   'о'],     // auto→ото, pause→поз
+  ['ou',   'у'],     // group→груп, soup→суп
+  // 2 символа — удвоенные согласные (середина слова)
+  ['bb',   'бб'],    // bubble→баббл, rubber→раббер
+  ['tt',   'тт'],    // button→баттон, bottle→боттл
+  ['ll',   'лл'],    // hello→хэллоу, bell→белл
+  ['ss',   'сс'],    // class→класс, bass→басс
+  ['rr',   'рр'],    // arrow→арроу, mirror→миррор
+  ['nn',   'нн'],    // inn→инн, connect→коннект
+  ['pp',   'пп'],    // apple→эппл, happy→хэппи
+  ['ff',   'фф'],    // off→офф, effect→эффект
+  ['gg',   'гг'],    // egg→эгг, bigger→биггер
+  ['mm',   'мм'],    // hammer→хаммер, comm→комм
+  ['dd',   'дд'],    // add→адд, middle→мидл
+  ['cc',   'кк'],    // account→аккаунт
+];
+
+// Одиночные буквы — без позиционных правил (запасные)
+const _SC = {
+  a:'а', b:'б', d:'д', e:'е', f:'ф', h:'х', i:'и', k:'к', l:'л',
+  m:'м', n:'н', o:'о', p:'п', q:'к', r:'р', s:'с', t:'т', v:'в',
+  w:'в', z:'з',
+};
+
+// Английские согласные для правила 'u'
+const _ENG_CONS = new Set([...'bcdfghjklmnpqrstvwxz']);
+
+function _translitWord(word) {
+  // word: строчные латинские буквы
+  const len = word.length;
+  let out = '';
+  let i = 0;
+
+  while (i < len) {
+    let matched = false;
+
+    // Пробуем паттерны по порядку (длинные первые гарантированы расположением в массиве)
+    for (const [pat, cyr] of _PP) {
+      if (word.startsWith(pat, i)) {
+        out += cyr;
+        i += pat.length;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    // Позиционные правила для отдельных букв
+    const ch = word[i];
+    const prev = i > 0 ? word[i-1] : '';
+    const next = i < len-1 ? word[i+1] : '';
+    const next2 = i < len-2 ? word[i+2] : '';
+
+    if (ch === 'c') {
+      // c перед e/i/y → с, иначе → к
+      out += 'eiy'.includes(next) ? 'с' : 'к';
+    } else if (ch === 'g') {
+      // g перед e/i/y → дж (gel, giant), иначе → г
+      out += 'eiy'.includes(next) ? 'дж' : 'г';
+    } else if (ch === 'j') {
+      out += 'дж';  // juice→джус, jar→джар
+    } else if (ch === 'u') {
+      // u между двумя согласными → 'а' (bubble→баббл, truck→трак, fun→фан)
+      // u в начале слова или перед гласной → 'у'
+      const prevC = _ENG_CONS.has(prev);
+      const nextC = _ENG_CONS.has(next);
+      out += (prev && prevC && next && nextC) ? 'а' : 'у';
+    } else if (ch === 'y') {
+      // y в начале или конце слова → й; в середине между согл → и
+      if (!prev || !next) out += 'й';
+      else out += 'и';
+    } else if (ch === 'x') {
+      // x в начале слова → з (xylophone), иначе → кс
+      out += (i === 0) ? 'з' : 'кс';
+    } else if (ch === 'e' && i === len-1) {
+      // немая e в самом конце слова — не добавляем
+      // (snake, name, store — финальная e не читается)
+    } else {
+      out += _SC[ch] || ch;
+    }
+    i++;
+  }
+  return out;
+}
+
+function latinToCyrillic(s) {
+  // Обрабатываем каждое латинское слово отдельно
+  // Нелатинские символы (пробелы, цифры, кириллица) остаются как есть
+  return s.replace(/[a-z]+/g, word => {
+    // Сначала применяем слово-конечные паттерны на уже частично транслитерированном
+    // НЕТ — применяем на исходном слове, потом финальные паттерны поверх результата
+    const raw = _translitWord(word);
+    // Пост-обработка: убираем артефакты слово-конечных паттернов в кириллице
+    let r = raw;
+    for (const [re, rep] of _WE) r = r.replace(re, rep);
+    return r;
+  });
+}
+
+// ── НОРМАЛИЗАЦИЯ ЕДИНИЦ ──
+// Всё к базовым единицам: г, мл, мм.
+// Важно: применяем ПОСЛЕ транслитерации, потому что "kg"→"кг", "ml"→"мл" уже кириллица.
+// Моё улучшение: разделители размеров "4x40", "4×40", "4х40" → два отдельных числа.
+// Это важно для автозапчастей, крепежа, текстиля.
+const _UNITS = [
+  // масса → г
+  [/(\d+(?:[.,]\d+)?)\s*(?:тонн|тн)\b/g,                   1e6,   'г'],
+  [/(\d+(?:[.,]\d+)?)\s*кг\b/g,                             1000,  'г'],
+  [/(\d+(?:[.,]\d+)?)\s*мг\b/g,                             0.001, 'г'],
+  [/(\d+(?:[.,]\d+)?)\s*(?:гр?)\b/g,                        1,     'г'],
+  [/(\d+(?:[.,]\d+)?)\s*г(?=[^а-яё]|$)/g,                   1,     'г'],
+  // объём → мл
+  [/(\d+(?:[.,]\d+)?)\s*(?:литр|лит)\b/g,                   1000,  'мл'],
+  [/(\d+(?:[.,]\d+)?)\s*л\b/g,                               1000,  'мл'],
+  [/(\d+(?:[.,]\d+)?)\s*мл\b/g,                              1,     'мл'],
+  // длина → мм
+  [/(\d+(?:[.,]\d+)?)\s*(?:метр|метра)\b/g,                  1000,  'мм'],
+  [/(\d+(?:[.,]\d+)?)\s*м\b/g,                               1000,  'мм'],
+  [/(\d+(?:[.,]\d+)?)\s*дм\b/g,                              100,   'мм'],
+  [/(\d+(?:[.,]\d+)?)\s*см\b/g,                              10,    'мм'],
+  [/(\d+(?:[.,]\d+)?)\s*(?:дюйм|")\b/g,                     25.4,  'мм'],
+  [/(\d+(?:[.,]\d+)?)\s*мм\b/g,                              1,     'мм'],
+];
+function normalizeUnits(s) {
+  let r = s;
+  for (const [re, mult, suf] of _UNITS) {
+    re.lastIndex = 0;
+    r = r.replace(re, (_, n) => {
+      const v = parseFloat(n.replace(',', '.')) * mult;
+      const val = Math.abs(v - Math.round(v)) < 0.0001 ? Math.round(v) : +v.toFixed(3);
+      return val + suf;
+    });
+  }
+  return r;
+}
+
+// ── ГЛАВНАЯ НОРМАЛИЗАЦИЯ (строгий порядок) ──
+function normalizeForMatch(raw) {
+  let s = String(raw || '');
+  if (!s.trim()) return '';
+
+  // 1. Нижний регистр
+  s = s.toLowerCase();
+  // 2. ё → е (до транслита, чтобы не трогать лишний раз)
+  s = s.replace(/ё/g, 'е');
+  // 3. Latin → Cyrillic
+  s = latinToCyrillic(s);
+  // 4. Единицы → базовый формат (все слова теперь кирилл.)
+  s = normalizeUnits(s);
+  // 4b. Разделители размеров "4x40", "4×40", "4*40" → "4 40"
+  //     НО "5w30" (вязкость), "m8" (метрич.резьба) — оставляем как есть,
+  //     потому что "w" и буква после цифры уже кириллица после транслита:
+  //     "5w30" → "5в30" → разделяем цифру-букву: "5 в30"? Нет — оставим.
+  //     Только явные разделители: × х (кириллическое) x (после трансл) между двумя числами.
+  s = s.replace(/(\d+)\s*[xх×*]\s*(\d+)/g, '$1 $2');
+  // 4c. Запятая как дробный разделитель внутри числа: "3,2" → "3.2"
+  s = s.replace(/(\d),(\d)/g, '$1.$2');
+  // 5. Всё кроме кириллицы, цифр и точки-в-числе → пробел
+  s = s.replace(/[^а-я0-9.\s]/g, ' ');
+  s = s.replace(/(?<!\d)\.(?!\d)/g, ' '); // точка не между цифрами → пробел
+  // 6. Убрать повторные пробелы
+  s = s.replace(/\s+/g, ' ').trim();
+  // 7. Сортировка токенов (перестановки слов не влияют на результат)
+  const tokens = s.split(' ').filter(Boolean);
+  tokens.sort();
+  return tokens.join(' ');
+}
+
+// ── ТРИГРАММЫ ПО ТОКЕНАМ (по спеке) ──
+// Каждый токен обрабатывается отдельно — нет «сквозных» триграмм между словами.
+// Используем мультимножество для корректного подсчёта Dice при повторах.
+function buildTrigramBag(normalizedStr) {
+  const bag = new Map();
+  for (const token of normalizedStr.split(' ')) {
+    if (!token) continue;
+    if (token.length < 3) {
+      // Короткие токены (1-2 символа) добавляем целиком как «псевдо-триграмму»
+      bag.set(token, (bag.get(token) || 0) + 1);
+      continue;
+    }
+    for (let i = 0; i <= token.length - 3; i++) {
+      const tri = token.slice(i, i + 3);
+      bag.set(tri, (bag.get(tri) || 0) + 1);
+    }
+  }
+  return bag;
+}
+function trigramSim(n1, n2) {
+  if (!n1 && !n2) return 1;
+  if (!n1 || !n2) return 0;
+  const b1 = buildTrigramBag(n1), b2 = buildTrigramBag(n2);
+  let total1 = 0, total2 = 0, inter = 0;
+  for (const [k, v] of b1) { total1 += v; if (b2.has(k)) inter += Math.min(v, b2.get(k)); }
+  for (const [, v] of b2) total2 += v;
+  if (total1 + total2 === 0) return 0;
+  return (2 * inter) / (total1 + total2); // Коэффициент Дайса
+}
+
+// ── ЧИСЛА: Dice-схожесть мультимножеств ──
+function extractNums(normalizedStr) {
+  // Числа с суффиксами единиц уже нормализованы (500г, 1000мл, 25мм).
+  // Извлекаем ВСЕ числа включая дробные.
+  const nums = [];
+  for (const m of (normalizedStr.match(/\d+(?:\.\d+)?/g) || [])) nums.push(parseFloat(m));
+  return nums;
+}
+// Возвращает: null = нет чисел у обоих (метрика не участвует),
+//             'oneside' = числа только у одного (штраф),
+//             0..1 = Dice по числам
+function numResult(nums1, nums2) {
+  const n1 = nums1.length, n2 = nums2.length;
+  if (n1 === 0 && n2 === 0) return null;          // нет чисел → не участвует
+  if (n1 === 0 || n2 === 0) return 'oneside';     // только у одного → штраф
+  // Dice по мультимножествам
+  const bag1 = new Map(), bag2 = new Map();
+  for (const n of nums1) { const k = String(n); bag1.set(k, (bag1.get(k)||0)+1); }
+  for (const n of nums2) { const k = String(n); bag2.set(k, (bag2.get(k)||0)+1); }
+  let inter = 0;
+  for (const [k, v] of bag1) if (bag2.has(k)) inter += Math.min(v, bag2.get(k));
+  return (2 * inter) / (n1 + n2);
+}
+
+// ── LCS: наидлиннейшая общая ПОДПОСЛЕДОВАТЕЛЬНОСТЬ (по спеке) ──
+// Не substring! LCS может пропускать символы.
+// "нгк бп6ес" и "нгк bp6es" → после нормализации одинаковы → LCS = 100%.
+// Используем rolling-array DP, ограничение 120 символов для скорости.
+function lcsLen(a, b) {
+  const A = a.slice(0, 120), B = b.slice(0, 120);
+  let prev = new Uint8Array(B.length + 1), curr = new Uint8Array(B.length + 1);
+  for (let i = 0; i < A.length; i++) {
+    for (let j = 0; j < B.length; j++) {
+      curr[j+1] = A[i] === B[j] ? prev[j] + 1 : Math.max(curr[j], prev[j+1]);
+    }
+    [prev, curr] = [curr, prev]; curr.fill(0);
+  }
+  return prev[B.length];
+}
+function lcsSim(n1, n2) {
+  if (!n1 && !n2) return 1;
+  if (!n1 || !n2) return 0;
+  return (2 * lcsLen(n1, n2)) / (Math.min(n1.length,120) + Math.min(n2.length,120));
+}
+
+// ── БЫСТРЫЙ ПРЕДФИЛЬТР: инвертированный индекс по токенам ──
+// Вместо MinHash LSH (нет datasketch в браузере).
+// O(N) построение, O(1) среднее время поиска кандидатов.
+// Для 2000 позиций × 2000 позиций: 4млн сравнений → с предфильтром ~40 сравнений на элемент.
+function buildInvIndex(items) {
+  const idx = new Map();
+  items.forEach((item, i) => {
+    for (const tok of item._norm.split(' ')) {
+      if (tok.length < 2) continue;
+      if (!idx.has(tok)) idx.set(tok, []);
+      idx.get(tok).push(i);
+    }
+  });
+  return idx;
+}
+function getCandidates(norm, idx, items, topN = 25) {
+  const toks = norm.split(' ').filter(t => t.length >= 2);
+  const freq = new Map();
+  for (const tok of toks) {
+    for (const id of (idx.get(tok) || [])) freq.set(id, (freq.get(id)||0) + 1);
+  }
+  // Сортируем по количеству общих токенов
+  const ranked = [...freq.entries()].sort((a,b) => b[1]-a[1]).slice(0, topN).map(([id])=>id);
+  // Если мало кандидатов — добавить совпадения по первому токену (fallback)
+  if (ranked.length < 5 && toks.length > 0) {
+    const first = toks[0];
+    items.forEach((item, id) => {
+      if (!freq.has(id) && item._norm.includes(first)) ranked.push(id);
+    });
+  }
+  return ranked.slice(0, topN);
+}
+
+// ── ИТОГОВЫЙ РАСЧЁТ СХОЖЕСТИ ──
+// Считает по всем комбинациям вариантов (с ребрендингом и без),
+// возвращает лучший результат.
+function _calcOneVariant(n1, n2) {
+  if (n1 === n2 && n1.length > 0) {
+    return { score: 100, tri: 1, numR: 1, lcs: 1 };
+  }
+  const tri = trigramSim(n1, n2);
+  const nums1 = extractNums(n1), nums2 = extractNums(n2);
+  const numR  = numResult(nums1, nums2);
+  const lcs   = lcsSim(n1, n2);
+  let composite;
+  if (numR === null)      composite = tri * 0.8 + lcs * 0.2;
+  else if (numR === 'oneside') composite = Math.max(0, tri * 0.5 + lcs * 0.2 - 0.3);
+  else                    composite = tri * 0.5 + numR * 0.3 + lcs * 0.2;
+  return { score: Math.round(Math.min(100, Math.max(0, composite * 100))), tri, numR, lcs };
+}
+
+function calculateSimilarity(text1, text2) {
+  const vars1 = normalizeVariants(text1);
+  const vars2 = normalizeVariants(text2);
+
+  let best = null, bestN1 = vars1[0], bestN2 = vars2[0];
+  for (const v1 of vars1) {
+    for (const v2 of vars2) {
+      const r = _calcOneVariant(v1, v2);
+      if (!best || r.score > best.score) { best = r; bestN1 = v1; bestN2 = v2; }
+    }
+  }
+
+  const { score, tri, numR, lcs } = best;
+  const isRebranded = (bestN1 !== vars1[0] || bestN2 !== vars2[0]);
+
+  const numScore   = numR === null ? 0 : numR === 'oneside' ? -30 : Math.round(numR * 30);
+  const numMatched = typeof numR === 'number' && numR > 0;
+  const numPenalty = numR === 'oneside' || (typeof numR === 'number' && numR === 0);
+
+  const tags = [];
+  if (score === 100) tags.push('✓ Точное');
+  if (isRebranded)   tags.push('🔄 Ребрендинг');
+  if (tri >= 0.85)   tags.push('📊 Три ✓');
+  if (numR === null)              tags.push('🔢 —');
+  else if (numR === 'oneside')    tags.push('⚠️ Числа у одного');
+  else if (typeof numR === 'number' && numR > 0 && numR < 0.5) tags.push('⚠️ Разные числа');
+  else if (numMatched)            tags.push('🔢 ✓');
+  if (lcs >= 0.65) tags.push('🔗 LCS ✓');
+
+  const details = [
+    { component:'📊 Триграммы', score: Math.round(tri * 50),  matched: tri > 0.3 },
+    { component:'🔢 Числа',     score: numScore,               matched: numMatched, penalty: numPenalty,
+      note: numR === null ? '(нет чисел → вес tri)' : undefined },
+    { component:'🔗 LCS',       score: Math.round(lcs * 20),  matched: lcs > 0.4 },
+  ];
+  if (isRebranded) details.push({ component:'🔄 Ребрендинг', score: 0, matched: true });
+
+  const matchedTokens = new Set();
+  const tok2 = new Set(bestN2.split(' '));
+  for (const t of bestN1.split(' ')) if (tok2.has(t) && t.length > 1) matchedTokens.add(t);
+
+  return { score, rawScore: score, details, tags, matchedTokens, weightPenalty: false,
+           _n1: bestN1, _n2: bestN2, _orig_n1: vars1[0], _orig_n2: vars2[0] };
+}
+
+// Совместимость с остальным кодом
+function normalizeText(text) { return normalizeForMatch(text); }
+function getSignificantTokens(text) { return normalizeForMatch(text).split(' ').filter(w=>w.length>1); }
+function extractNumbers(text) { return extractNums(normalizeForMatch(text)); }
+
+// =============================================================================
+// ТАБЛИЦА РЕБРЕНДИНГОВ И ЭКВИВАЛЕНТОВ
+// Хранит пары [старое/альтернативное → каноническое] после нормализации.
+// Применяется ПОСЛЕ normalizeForMatch, поэтому всё уже кириллица + нижний регистр.
+// Добавляйте любые новые пары — алгоритм подхватит автоматически.
+// =============================================================================
+const REBRAND_TABLE = [
+  // Еда / напитки
+  ['хрутка',         'несквик'],
+  ['чипсы лейс',     'лайс'],   ['захрустим',     'лайс'],
+  ['простоквашино',  'данон'],
+  ['юнимилк',        'данон'],
+  ['пепси кола',     'пепси'],
+  ['кока кола',      'кока'],   ['кока-кола',     'кока'],
+  ['sprite',         'спрайт'], // уже транслит, но на случай остатков
+  // Авто / масла
+  ['шелл хеликс',    'хеликс'],
+  ['мобил 1',        'мобил'],
+  ['кастрол эдж',    'кастрол'],
+  ['бош',            'бош'],    // bosch уже транслит
+  // Техника
+  ['самсунг',        'самсунг'], ['самсуng',       'самсунг'],
+  ['эпл',            'эппл'],
+  // Одежда / размеры
+  ['р.',             'р'],      ['размер',         'р'],
+  ['разм',           'р'],
+  // Общие сокращения
+  ['шт.',            'шт'],     ['штук',           'шт'],
+  ['уп.',            'уп'],     ['упаковка',       'уп'],
+  ['кор.',           'кор'],    ['коробка',        'кор'],
+  ['таб.',           'таб'],    ['таблетка',       'таб'],  ['таблетки','таб'],
+  ['кап.',           'кап'],    ['капсула',        'кап'],  ['капсулы', 'кап'],
+  ['амп.',           'амп'],    ['ампула',         'амп'],  ['ампулы',  'амп'],
+  ['фл.',            'фл'],     ['флакон',         'фл'],
+  ['пак.',           'пак'],    ['пакет',          'пак'],  ['пакетик', 'пак'],
+  ['n',              'н'],      ['no',             'н'],    ['nr',      'н'],
+  // Характеристики автозапчастей
+  ['оцинкованный',   'оцинк'],  ['оцинк.',         'оцинк'],
+  ['нержавеющий',    'нерж'],   ['нерж.',          'нерж'],
+  ['гальванизированный','оцинк'],
+];
+
+// Строим быстрый индекс: отсортируем по убыванию длины (длинные замены первыми)
+const _REBRAND_SORTED = [...REBRAND_TABLE].sort((a,b) => b[0].length - a[0].length);
+
+function applyRebrands(normalizedStr) {
+  let s = normalizedStr;
+  for (const [from, to] of _REBRAND_SORTED) {
+    // Заменяем только целые токены или начало/конец токена
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    s = s.replace(new RegExp(`(?<![а-я0-9])${escaped}(?![а-я0-9])`, 'g'), to);
+  }
+  // Убираем повторные пробелы после замен
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+// Нормализация с ребрендингом — расширенная версия
+// Возвращает МАССИВ вариантов: [оригинальный, с_ребрендингом]
+// Матчинг берёт лучший скор среди всех пар вариантов.
+function normalizeVariants(raw) {
+  const base = normalizeForMatch(raw);
+  const rebranded = applyRebrands(base);
+  // Если ребрендинг ничего не изменил — только один вариант
+  if (rebranded === base) return [base];
+  // Пересортировать токены после замен
+  const rebrandedSorted = rebranded.split(' ').filter(Boolean).sort().join(' ');
+  return [base, rebrandedSorted].filter((v,i,a)=>a.indexOf(v)===i);
+}
+// =============================================================================
+// ЗАГРУЗКА ПРАЙСОВ (мульти-файл)
+// =============================================================================
+document.getElementById('multiPriceInput').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  showProgress('Загрузка прайсов...');
+  for (const file of files) {
+    try {
+      let rows;
+      if (file.name.toLowerCase().endsWith('.csv')) rows = await parseCSV(file);
+      else rows = await parseExcel(file);
+      const idx = allPricesFiles.findIndex(f => f.name === file.name);
+      if (idx >= 0) allPricesFiles[idx] = { name: file.name, data: rows };
+      else allPricesFiles.push({ name: file.name, data: rows });
+    } catch (err) {
+      alert(`Ошибка загрузки "${file.name}": ` + err.message);
+    }
+  }
+  hideProgress();
+  renderPriceFilesList();
+  const total = allPricesFiles.reduce((s, f) => s + f.data.length, 0);
+  document.getElementById('multiPriceBox').classList.add('loaded');
+  document.getElementById('multiPriceStatus').textContent = `✓ ${allPricesFiles.length} файл(ов) · ${total} позиций`;
+  if (allPricesFiles.length >= 1) performEnhancedMatching();
+  e.target.value = '';
+});
+
+function renderPriceFilesList() {
+  const container = document.getElementById('priceFilesList');
+  if (!allPricesFiles.length) { container.style.display = 'none'; return; }
+  container.style.display = '';
+  container.innerHTML = allPricesFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f8f7ff;border-radius:10px;margin-bottom:5px;border:1px solid #e9e5ff;">
+      <span style="font-size:16px;">📄</span>
+      <span style="font-size:13px;font-weight:600;flex:1;color:#1c1c1e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+      <span style="font-size:11px;color:#8e8e93;white-space:nowrap;">${f.data.length} позиций</span>
+      <button onclick="removePriceFile(${i})" style="border:none;background:none;cursor:pointer;color:#ff3b30;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0;" title="Убрать файл">✕</button>
+    </div>`).join('');
+}
+
+function removePriceFile(idx) {
+  allPricesFiles.splice(idx, 1);
+  renderPriceFilesList();
+  const total = allPricesFiles.reduce((s, f) => s + f.data.length, 0);
+  if (allPricesFiles.length === 0) {
+    document.getElementById('multiPriceBox').classList.remove('loaded');
+    document.getElementById('multiPriceStatus').textContent = '';
+  } else {
+    document.getElementById('multiPriceStatus').textContent = `✓ ${allPricesFiles.length} файл(ов) · ${total} позиций`;
+    performEnhancedMatching();
+  }
+}
+
+function parseCSV(file) {
+  return new Promise((res,rej) => { Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>res(r.data),error:rej}); });
+}
+function parseExcel(file) {
+  return new Promise((res,rej) => {
+    const reader=new FileReader();
+    reader.onload=e=>{try{const d=new Uint8Array(e.target.result),wb=XLSX.read(d,{type:'array'}),s=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(s));}catch(err){rej(err);}};
+    reader.readAsArrayBuffer(file);
+  });
+}
+function convertTableToJSON(data) {
+  const result={};if(!data||!data.length)throw new Error('Файл пустой');
+  const bc=findColumn(data,BARCODE_COLS),nc=findColumn(data,NAME_COLS),sc=findColumn(data,SYNONYM_COLS);
+  if(!bc||!nc)throw new Error('Не найдены обязательные колонки');
+  for(const row of data){const b=String(row[bc]||'').trim(),n=String(row[nc]||'').trim(),s=sc?String(row[sc]||'').trim():'';if(b&&n)result[b]=[n,s];}
+  return result;
+}
+function findColumn(data,synonyms) {
+  if(!data||!data.length)return null;
+  const cols=Object.keys(data[0]);
+  return cols.find(c=>synonyms.some(s=>c.toLowerCase().includes(s.toLowerCase())))||cols[0];
+}
+function isBarcode(str) { return /^\d{8,14}$/.test(String(str).trim()); }
+function showProgress(t) { document.getElementById('progressBar').classList.add('show'); document.getElementById('progressText').textContent=t; document.getElementById('progressFill').style.width='0%'; }
+function updateProgress(p) { document.getElementById('progressFill').style.width=p+'%'; }
+function hideProgress() { document.getElementById('progressBar').classList.remove('show'); }
+
+// Smart Matcher state
+let knownItems = [];
+
+async function performEnhancedMatching() {
+  if (allPricesFiles.length === 0) return;
+
+  showProgress('Анализирую прайсы...');
+  allMatches = []; addedItems = [];
+  window._activePairs = []; window._knownPairs = []; window._sameBCPairs = [];
+
+  // ── JSON-база: ШК → ключ группы и каноническое имя ──
+  const bc2jsonKey   = new Map();
+  const bc2groupName = new Map();
+  for (const [key, val] of Object.entries(sharedData)) {
+    const canonName = Array.isArray(val) ? (val[0]||'') : '';
+    bc2jsonKey.set(key, key);
+    bc2groupName.set(key, canonName);
+    if (Array.isArray(val)) val.slice(1).forEach(syn => {
+      const s = String(syn).trim();
+      if (s) { bc2jsonKey.set(s, key); bc2groupName.set(s, canonName); }
+    });
+  }
+
+  // ── Собираем все товары из всех файлов ──
+  const allItems = [];
+  for (let fi = 0; fi < allPricesFiles.length; fi++) {
+    const f = allPricesFiles[fi];
+    const bc = findColumn(f.data, BARCODE_COLS);
+    const nc = findColumn(f.data, NAME_COLS);
+    if (!bc || !nc) { alert(`Файл "${f.name}": не найдены колонки Штрихкод/Наименование`); continue; }
+    for (const row of f.data) {
+      const barcode = String(row[bc]||'').trim();
+      const name    = String(row[nc]||'').trim();
+      if (barcode && name) allItems.push({ barcode, name, _fileIdx: fi, _fileName: f.name });
+    }
+  }
+  if (allItems.length === 0) { hideProgress(); return; }
+
+  const singleFile = allPricesFiles.length === 1;
+
+  // ── Режим 1 файла: сравниваем прайс с JSON-базой ──
+  if (singleFile) {
+    const hasJson = Object.keys(sharedData).length > 0;
+    if (!hasJson) {
+      hideProgress();
+      document.getElementById('resultsList').innerHTML = `<div class="matcher-empty">
+        <div class="matcher-empty-icon">📦</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Загрузите JSON базу</div>
+        <div>При одном прайсе сверка выполняется с JSON базой синонимов</div></div>`;
+      document.getElementById('resultsPanel').classList.add('show');
+      return;
+    }
+
+    // Строим поисковый индекс из JSON (каноническое имя каждой группы)
+    const jsonItems = Object.entries(sharedData).map(([key, val]) => ({
+      barcode: key,
+      name:    Array.isArray(val) ? (val[0]||key) : key,
+      _norm:   normalizeForMatch(Array.isArray(val) ? (val[0]||key) : key),
+      _fileName: 'JSON база',
+    }));
+    const invIndexJson = buildInvIndex(jsonItems);
+
+    const fn1 = allPricesFiles[0].name;
+    showProgress('Сравниваю прайс с JSON базой...');
+
+    for (let i = 0; i < allItems.length; i++) {
+      const { barcode: barcode1, name: name1 } = allItems[i];
+      const jsonKey1   = bc2jsonKey.get(barcode1);
+      const matchName1 = jsonKey1 ? (bc2groupName.get(barcode1) || name1) : name1;
+      const norm1      = normalizeForMatch(matchName1);
+
+      const candidateIds = getCandidates(norm1, invIndexJson, jsonItems, 25);
+      const candidates   = [];
+      const seenBarcodes = new Set();
+
+      for (const id of candidateIds) {
+        const jItem = jsonItems[id];
+        if (seenBarcodes.has(jItem.barcode)) continue;
+        if (jItem.barcode === barcode1) continue; // тот же ШК — пропуск
+        const r = calculateSimilarity(matchName1, jItem.name);
+        if (r.score >= SIMILARITY_THRESHOLD) {
+          candidates.push({ barcode: jItem.barcode, name: jItem.name, similarity: r.score, matchResult: r, _fileName: 'JSON база' });
+          seenBarcodes.add(jItem.barcode);
+        }
+      }
+
+      candidates.sort((a, b) => b.similarity - a.similarity);
+      const top3 = candidates.slice(0, 3);
+      const best = top3[0];
+      if (!best) {
+        if (i % 10 === 0) { updateProgress(i / allItems.length * 100); await new Promise(r => setTimeout(r, 0)); }
+        continue;
+      }
+
+      const jsonKey2    = bc2jsonKey.get(best.barcode);
+      const sameBarcode = barcode1 === best.barcode;
+      const inJsonGroup = !sameBarcode && !!(jsonKey1 && jsonKey2 && jsonKey1 === jsonKey2);
+      const bc1inBase   = !!jsonKey1;
+      const bc2inBase   = !!jsonKey2; // в режиме 1 файла best всегда из JSON, значит bc2inBase=true
+
+      allMatches.push({
+        barcode: barcode1, name: name1, matchName1,
+        supplierBarcode: best.barcode, supplierName: best.name,
+        similarity: best.similarity, matchResult: best.matchResult,
+        weightPenalty: false, candidates: top3,
+        alreadyInBase: bc1inBase || bc2inBase,
+        sameBarcode, inJsonGroup, bc1inBase,
+        bc1jsonKey: jsonKey1 || null,
+        bc1canonName: jsonKey1 ? bc2groupName.get(barcode1) : null,
+        usedJsonName: jsonKey1 && matchName1 !== name1,
+        bc2inBase,
+        bc2jsonKey: jsonKey2 || null,
+        bc2canonName: jsonKey2 ? bc2groupName.get(best.barcode) : null,
+        _file1Name: fn1,
+        _file2Name: 'JSON база',
+      });
+
+      if (i % 10 === 0) { updateProgress(i / allItems.length * 100); await new Promise(r => setTimeout(r, 0)); }
+    }
+
+  } else {
+    // ── Режим нескольких файлов: сравниваем между разными файлами И с JSON ──
+    const indexedAll  = allItems.map(item => ({ ...item, _norm: normalizeForMatch(item.name) }));
+    const invIndexAll = buildInvIndex(indexedAll);
+
+    // JSON-кандидаты (добавляем только если JSON загружен)
+    const hasJson = Object.keys(sharedData).length > 0;
+    const jsonItems = hasJson ? Object.entries(sharedData).map(([key, val]) => ({
+      barcode: key,
+      name:    Array.isArray(val) ? (val[0]||key) : key,
+      _norm:   normalizeForMatch(Array.isArray(val) ? (val[0]||key) : key),
+      _fileIdx: -1, // признак JSON
+      _fileName: 'JSON база',
+    })) : [];
+    const invIndexJson = hasJson ? buildInvIndex(jsonItems) : null;
+
+    const seenPairs   = new Set();
+
+    showProgress('Сравниваю позиции между прайсами...');
+
+    for (let i = 0; i < allItems.length; i++) {
+      const item1    = allItems[i];
+      const { barcode: barcode1, name: name1, _fileIdx: fi1, _fileName: fn1 } = item1;
+
+      const jsonKey1   = bc2jsonKey.get(barcode1);
+      const matchName1 = jsonKey1 ? (bc2groupName.get(barcode1) || name1) : name1;
+      const norm1      = normalizeForMatch(matchName1);
+
+      const candidates   = [];
+      const seenBarcodes = new Set();
+
+      // Кандидаты из других прайс-файлов
+      const candidateIds = getCandidates(norm1, invIndexAll, indexedAll, 30);
+      for (const id of candidateIds) {
+        const item2 = indexedAll[id];
+        if (item2._fileIdx === fi1) continue;
+        if (seenBarcodes.has(item2.barcode)) continue;
+        const pairKey = [barcode1, item2.barcode].sort().join('|');
+        if (seenPairs.has(pairKey)) continue;
+        const r = calculateSimilarity(matchName1, item2.name);
+        if (r.score >= SIMILARITY_THRESHOLD) {
+          candidates.push({ barcode: item2.barcode, name: item2.name, similarity: r.score, matchResult: r, _fileName: item2._fileName });
+          seenBarcodes.add(item2.barcode);
+        }
+      }
+
+      // Кандидаты из JSON (если загружен)
+      if (invIndexJson) {
+        const candidateIdsJson = getCandidates(norm1, invIndexJson, jsonItems, 15);
+        for (const id of candidateIdsJson) {
+          const jItem = jsonItems[id];
+          if (seenBarcodes.has(jItem.barcode)) continue;
+          if (jItem.barcode === barcode1) continue;
+          const pairKey = [barcode1, jItem.barcode].sort().join('|');
+          if (seenPairs.has(pairKey)) continue;
+          const r = calculateSimilarity(matchName1, jItem.name);
+          if (r.score >= SIMILARITY_THRESHOLD) {
+            candidates.push({ barcode: jItem.barcode, name: jItem.name, similarity: r.score, matchResult: r, _fileName: 'JSON база' });
+            seenBarcodes.add(jItem.barcode);
+          }
+        }
+      }
+
+      candidates.sort((a, b) => b.similarity - a.similarity);
+      const top3 = candidates.slice(0, 3);
+      const best = top3[0];
+      if (!best) {
+        if (i % 10 === 0) { updateProgress(i / allItems.length * 100); await new Promise(r => setTimeout(r, 0)); }
+        continue;
+      }
+
+      seenPairs.add([barcode1, best.barcode].sort().join('|'));
+
+      const jsonKey2    = bc2jsonKey.get(best.barcode);
+      const sameBarcode = barcode1 === best.barcode;
+      const inJsonGroup = !sameBarcode && !!(jsonKey1 && jsonKey2 && jsonKey1 === jsonKey2);
+      const bc1inBase   = !!jsonKey1;
+      const bc2inBase   = !!jsonKey2;
+
+      allMatches.push({
+        barcode:         barcode1,
+        name:            name1,
+        matchName1,
+        supplierBarcode: best.barcode,
+        supplierName:    best.name,
+        similarity:      best.similarity,
+        matchResult:     best.matchResult,
+        weightPenalty:   false,
+        candidates:      top3,
+        alreadyInBase:   bc1inBase || bc2inBase,
+        sameBarcode,
+        inJsonGroup,
+        bc1inBase,
+        bc1jsonKey:      jsonKey1 || null,
+        bc1canonName:    jsonKey1 ? bc2groupName.get(barcode1) : null,
+        usedJsonName:    jsonKey1 && matchName1 !== name1,
+        bc2inBase,
+        bc2jsonKey:      jsonKey2 || null,
+        bc2canonName:    jsonKey2 ? bc2groupName.get(best.barcode) : null,
+        _file1Name:      fn1,
+        _file2Name:      best._fileName,
+      });
+
+      if (i % 10 === 0) { updateProgress(i / allItems.length * 100); await new Promise(r => setTimeout(r, 0)); }
+    }
+  } // end else (multiple files)
+
+  const sameBCPairs = allMatches.filter(m => m.sameBarcode);
+  const knownPairs  = allMatches.filter(m => m.inJsonGroup);
+  const activePairs = allMatches.filter(m => !m.sameBarcode && !m.inJsonGroup);
+  activePairs.sort((a, b) => b.similarity - a.similarity);
+
+  document.getElementById('statTotal').textContent  = activePairs.length;
+  document.getElementById('statSameBC').textContent = sameBCPairs.length;
+  document.getElementById('statKnown').textContent  = knownPairs.length;
+  document.getElementById('statAdded').textContent  = addedItems.length;
+  document.getElementById('statsBar').classList.add('show');
+  document.getElementById('resultsPanel').classList.add('show');
+  hideProgress();
+
+  window._activePairs = activePairs;
+  window._knownPairs  = knownPairs;
+  window._sameBCPairs = sameBCPairs;
+  filterByView('all');
+}
+
+// =============================================================================
+// ФИЛЬТРАЦИЯ И РЕНДЕР
+// =============================================================================
+function filterByView(view) {
+  if (view !== currentView) _resultFilter = 'all';
+  currentView = view;
+  document.querySelectorAll('#statsBar .stat-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+
+  const active = window._activePairs  || [];
+  const kp     = window._knownPairs   || [];
+  const sbp    = window._sameBCPairs  || [];
+
+  if (view === 'all') {
+    document.getElementById('resultsTitle').textContent    = '📋 Все совпадения';
+    document.getElementById('resultsSubtitle').textContent = `${active.length} пар · сортировка по убыванию схожести`;
+    renderResults(active);
+  } else if (view === 'samebc') {
+    document.getElementById('resultsTitle').textContent    = '🔁 Одинаковые штрихкоды';
+    document.getElementById('resultsSubtitle').textContent = `${sbp.length} пар — один и тот же товар в обоих прайсах`;
+    renderResults(sbp, 'samebc');
+  } else if (view === 'known') {
+    document.getElementById('resultsTitle').textContent    = '🔗 Уже в базе JSON';
+    document.getElementById('resultsSubtitle').textContent = `${kp.length} пар — оба штрихкода уже в одной группе`;
+    renderResults(kp, 'known');
+  } else if (view === 'added') {
+    document.getElementById('resultsTitle').textContent    = '✅ Добавлено в эту сессию';
+    document.getElementById('resultsSubtitle').textContent = `${addedItems.length} пар`;
+    renderResults(addedItems, 'added');
+  }
+}
+
+function highlightMatches(text, mt) {
+  if (!mt||!mt.size) return text; let r=text;
+  for (const t of mt) { try { r=r.replace(new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'),'<span class="highlight">$1</span>'); } catch(e){} }
+  return r;
+}
+
+let _resultFilter = 'all';
+
+// Diff-подсветка по нормализованным токенам
+// Умная diff-подсветка: каждое слово оригинала нормализуется и сравнивается
+// с нормализованным набором второй стороны — так "alpen gold" и "алпен голд" = совпадение.
+function diffHighlight(originalText, myNorm, otherNorm) {
+  if (!originalText) return '';
+  const otherSet = new Set(otherNorm.split(' ').filter(Boolean));
+  // Разбиваем на слова и пробелы
+  const parts = originalText.split(/(\s+)/);
+  return parts.map(part => {
+    if (/^\s+$/.test(part) || !part) return part;
+    const normPart = normalizeForMatch(part);
+    const toks = normPart.split(' ').filter(Boolean);
+    if (!toks.length) return '<span class="tok-diff">' + part.toUpperCase() + '</span>';
+    const matched = toks.some(t => t.length > 1 && otherSet.has(t));
+    return '<span class="' + (matched ? 'tok-match' : 'tok-diff') + '">' + part.toUpperCase() + '</span>';
+  }).join('');
+}
+
+function renderResults(items, mode='normal') {
+  const container = document.getElementById('resultsList');
+  const isAdded  = mode === 'added';
+  const isKnown  = mode === 'known';
+  const isSameBC = mode === 'samebc';
+  const isReadonly = isAdded || isKnown || isSameBC;
+
+  let filtered = items;
+  if (!isReadonly) {
+    if (_resultFilter === 'diff_bc') filtered = items.filter(r => r.barcode !== r.supplierBarcode && r.similarity >= 70);
+    else if (_resultFilter === 'same_bc') filtered = items.filter(r => r.barcode === r.supplierBarcode);
+  }
+
+  if (!filtered.length) {
+    const msgs = {
+      added:  ['✅', 'Ещё ничего не добавлено', ''],
+      known:  ['🔗', 'Нет пар в базе JSON', 'Загрузите JSON или ни одна пара не совпала'],
+      samebc: ['🔁', 'Одинаковых штрихкодов нет', ''],
+      normal: ['✓',  'Нет результатов', 'Попробуйте снизить порог или проверьте данные'],
+    };
+    const [icon, title, sub] = msgs[mode] || msgs.normal;
+    container.innerHTML = `
+      ${!isReadonly ? _filterBarHtml(items) : ''}
+      <div class="matcher-empty">
+        <div class="matcher-empty-icon">${icon}</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px;">${title}</div>
+        <div style="color:#8e8e93;font-size:13px;">${sub}</div>
+      </div>`;
+    return;
+  }
+
+  let html = !isReadonly ? _filterBarHtml(items) : '';
+
+  filtered.forEach((result, index) => {
+    const sim = result.similarity || 0;
+    const mr  = result.matchResult || {};
+
+    const simClass  = (isKnown || isSameBC) ? 'skip' : sim>=85?'high':sim>=60?'medium':'review';
+    const cardClass = (isKnown || isSameBC || isAdded) ? 'skipped-card'
+                    : sim>=85?'high-match':sim>=60?'medium-match':'review-card';
+
+    let actionLabel, actionClass;
+    if (isSameBC || result.sameBarcode) { actionLabel='🔁 Тот же ШК'; actionClass='action-skip'; }
+    else if (isKnown)   { actionLabel='🔗 В базе JSON'; actionClass='action-skip'; }
+    else if (isAdded)   { actionLabel='✅ Добавлено'; actionClass='action-skip'; }
+    else if (result.bc1inBase && result.bc2inBase) { actionLabel='🔀 Объединить'; actionClass='action-merge'; }
+    else if (result.bc1inBase || result.bc2inBase) { actionLabel='➕ Синоним'; actionClass='action-synonym'; }
+    else { actionLabel=sim>=85?'🆕 Новая группа':'🔍 Проверить'; actionClass=sim>=85?'action-main':'action-review'; }
+
+    // Нормализованные строки для diff
+    const n1 = mr._n1 || normalizeForMatch(result.name);
+    const n2 = mr._n2 || normalizeForMatch(result.supplierName||'');
+
+    // Diff-подсветка (word-level, с учётом транслита)
+    const hl1 = diffHighlight(result.name, n1, n2);
+    const hl2 = diffHighlight(result.supplierName||'', n2, n1);
+
+    // Теги совпадения (только предупреждения)
+    const matchTags = (mr.tags||[]).filter(t => t.includes('⚠️')).map(t=>`<span class="match-tag">${t}</span>`).join('');
+
+    // Score строка
+    let scoreHtml = '';
+    if (mr.details) {
+      scoreHtml = mr.details.map(d => {
+        const s = d.score||0;
+        if (s===0 && !d.penalty && !d.note) return '';
+        const col = d.penalty ? '#ff3b30' : s>0 ? '#34c759' : '#8e8e93';
+        return `<span class="score-item" style="${d.penalty?'background:#fff0f0':''}">
+          <span class="score-icon">${d.component.split(' ')[0]}</span>
+          <span style="color:${col}">${s>0?'+':''}${s}%</span>
+        </span>`;
+      }).filter(Boolean).join('');
+    }
+
+    // Иконка источника
+    const src1icon = result.bc1inBase ? '📦' : '📄';
+    const src2icon = result._file2Name === 'JSON база' ? '📦' : '🏪';
+
+    // Альтернативы
+    let candHtml = '';
+    if (result.candidates && result.candidates.length > 1 && !isReadonly) {
+      const cands = result.candidates.slice(0,3).map((c,ci) => {
+        const col = c.similarity>=85?'#34c759':c.similarity>=60?'#ff9500':'#af52de';
+        return `<div class="candidate-item ${ci===0?'selected':''}" onclick="selectCandidate(event,${index},${ci},'${currentView}')">
+          <span class="candidate-score" style="background:${col}">${c.similarity}%</span>
+          <span class="candidate-name">${(c._fileName||'')?`<span style="font-size:9px;color:#a78bfa;font-weight:400;">${c._fileName} · </span>`:''}${c.name}</span>
+          <span class="candidate-bc">${c.barcode||''}</span>
+          <button class="select-candidate-btn" onclick="selectAndConfirm(event,${index},${ci},'${currentView}')">✓</button>
+        </div>`;
+      }).join('');
+      candHtml = `<div class="candidates-section"><div class="candidates-title">🔎 Альтернативы</div>${cands}</div>`;
+    }
+
+    // sameBC mode: show "add to JSON" button if not already in JSON
+    let sameBcBtn = '';
+    if ((isSameBC || result.sameBarcode) && !result.bc1inBase && !result.bc2inBase) {
+      const bce = result.barcode.replace(/'/g,"\\'");
+      const nme = (result.name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      sameBcBtn = `<button onclick="event.stopPropagation();sameBcAddToJson('${bce}','${nme}',${index})"
+        style="margin-top:6px;padding:4px 14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">
+        🆕 Создать группу в JSON
+      </button>`;
+    }
+
+    const clickable = (!isReadonly || isSameBC) ? `onclick="showConfirmModal(${index},'${currentView}')"` : '';
+
+    html += `<div class="result-card ${cardClass}" ${clickable}>
+      <div class="card-header">
+        <div class="card-left">
+          <span class="similarity-badge similarity-${simClass}">${sim}%</span>
+          ${matchTags}
+        </div>
+        <span class="action-badge ${actionClass}">${actionLabel}</span>
+      </div>
+      <table class="cmp-table">
+        <tr class="cmp-row1">
+          <td class="cmp-col-src"><span class="cmp-src-label">${src1icon} ${result._file1Name||'Источник 1'}</span></td>
+          <td class="cmp-col-name"><span class="cmp-name-text">${hl1}</span></td>
+          <td class="cmp-col-bc"><span class="cmp-bc-text">${result.barcode}</span></td>
+        </tr>
+        <tr class="cmp-row2">
+          <td class="cmp-col-src"><span class="cmp-src-label">${src2icon} ${result._file2Name||'Источник 2'}</span></td>
+          <td class="cmp-col-name"><span class="cmp-name-text">${hl2}</span></td>
+          <td class="cmp-col-bc"><span class="cmp-bc-text">${result.supplierBarcode||'—'}</span></td>
+        </tr>
+      </table>
+      ${scoreHtml ? `<div class="score-details">${scoreHtml}</div>` : ''}
+      ${sameBcBtn}
+      ${candHtml}
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function _filterBarHtml(items) {
+  const total  = items.length;
+  const diffBc = items.filter(r => r.barcode !== r.supplierBarcode && r.similarity >= 70).length;
+  const sameBc = items.filter(r => r.barcode === r.supplierBarcode).length;
+  const btn = (key, label) => `<button
+    style="padding:4px 12px;border-radius:20px;border:1px solid #e0e0e0;cursor:pointer;font-size:12px;
+           background:${_resultFilter===key?'#1d1d1f':'#fff'};color:${_resultFilter===key?'#fff':'#1d1d1f'};
+           font-weight:${_resultFilter===key?'600':'400'}"
+    onclick="_resultFilter='${key}';filterByView(currentView)">${label}</button>`;
+  return `<div style="display:flex;gap:6px;align-items:center;padding:8px 0 12px;flex-wrap:wrap;">
+    <span style="font-size:12px;color:#8e8e93;margin-right:2px;">Фильтр:</span>
+    ${btn('all', `Все (${total})`)}
+    ${btn('diff_bc', `Схожие имена, разные ШК (${diffBc})`)}
+    ${sameBc > 0 ? btn('same_bc', `Одинаковые ШК (${sameBc})`) : ''}
+  </div>`;
+}
+
+function selectCandidate(e, itemIndex, candidateIndex, view) {
+  e.stopPropagation();
+  const list = window._activePairs || [];
+  if (!list[itemIndex] || !list[itemIndex].candidates) return;
+  const cands  = list[itemIndex].candidates;
+  const chosen = cands.splice(candidateIndex, 1)[0];
+  cands.unshift(chosen);
+  list[itemIndex].supplierBarcode = chosen.barcode;
+  list[itemIndex].supplierName    = chosen.name;
+  list[itemIndex].similarity      = chosen.similarity;
+  list[itemIndex].matchResult     = chosen.matchResult;
+  filterByView(currentView);
+}
+function selectAndConfirm(e, itemIndex, candidateIndex, view) {
+  e.stopPropagation();
+  selectCandidate(e, itemIndex, candidateIndex, view);
+  showConfirmModal(itemIndex, view);
+}
+
+// =============================================================================
+// МОДАЛКА ПОДТВЕРЖДЕНИЯ
+// =============================================================================
+function showConfirmModal(index, view) {
+  const v = view || currentView;
+  const list = v === 'samebc' ? (window._sameBCPairs||[])
+             : v === 'known'  ? (window._knownPairs||[])
+             : v === 'added'  ? addedItems
+             : (window._activePairs||[]);
+  const result = list[index]; if (!result) return;
+  pendingAction = { ...result };
+
+  const sim = result.similarity || 0;
+  const mr  = result.matchResult || {};
+  const n1 = mr._n1 || normalizeForMatch(result.name);
+  const n2 = mr._n2 || normalizeForMatch(result.supplierName||'');
+
+  // Similarity badge color
+  const pct = document.getElementById('modalSimilarity');
+  pct.textContent = sim + '%';
+  pct.className = 'modal-sim-pct' + (sim>=85?'':sim>=60?' med':' low');
+
+  // Source labels
+  document.getElementById('modalLabel1').textContent = '📄 ' + (result._file1Name || 'Источник 1');
+  document.getElementById('modalLabel2').textContent = (result._file2Name==='JSON база'?'📦':'🏪') + ' ' + (result._file2Name || 'Источник 2');
+
+  // Barcodes
+  document.getElementById('modalPriceBarcode').textContent = result.barcode;
+  document.getElementById('modalMainBarcode').textContent  = result.supplierBarcode||'—';
+
+  // Names with diff highlight
+  document.getElementById('modalPriceName').innerHTML = diffHighlight(result.name, n1, n2);
+  document.getElementById('modalMainName').innerHTML  = diffHighlight(result.supplierName||'', n2, n1);
+
+  // Hide norm rows (not needed)
+  document.getElementById('modalPriceNorm').innerHTML = '';
+  document.getElementById('modalMainNorm').innerHTML  = '';
+
+  // Action banner
+  const aic = document.getElementById('actionInfoCompact');
+  const cb  = document.getElementById('confirmBtn');
+  const { bc1inBase, bc2inBase, bc1jsonKey, bc2jsonKey: bc2jk, bc1canonName, bc2canonName,
+          barcode, supplierBarcode, sameBarcode } = result;
+
+  // sameBC with no JSON match → create new group
+  if (sameBarcode || (v === 'samebc')) {
+    if (!bc1inBase && !bc2inBase) {
+      aic.className = 'action-info-compact main';
+      document.getElementById('actionTextCompact').textContent =
+        `🆕 Создать группу: ШК ${barcode} «${result.name}»`;
+      cb.textContent = '🆕 Создать группу';
+    } else {
+      aic.className = 'action-info-compact';
+      document.getElementById('actionTextCompact').textContent = `🔗 Одинаковые ШК, уже в базе`;
+      cb.style.display = 'none';
+    }
+  } else if (bc1inBase && bc2inBase && bc1jsonKey !== bc2jk) {
+    aic.className = 'action-info-compact merge';
+    document.getElementById('actionTextCompact').textContent =
+      `🔀 Объединить группу «${bc1canonName||barcode}» и «${bc2canonName||supplierBarcode}»`;
+    cb.textContent = '🔀 Объединить группы';
+    cb.style.display = '';
+  } else if (!bc1inBase && bc2inBase) {
+    aic.className = 'action-info-compact';
+    document.getElementById('actionTextCompact').textContent =
+      `➕ ШК ${barcode} → синоним в группу «${bc2canonName||supplierBarcode}»`;
+    cb.textContent = '➕ Добавить синоним';
+    cb.style.display = '';
+  } else if (bc1inBase && !bc2inBase) {
+    aic.className = 'action-info-compact';
+    document.getElementById('actionTextCompact').textContent =
+      `➕ ШК ${supplierBarcode} → синоним в группу «${bc1canonName||barcode}»`;
+    cb.textContent = '➕ Добавить синоним';
+    cb.style.display = '';
+  } else {
+    aic.className = 'action-info-compact main';
+    document.getElementById('actionTextCompact').textContent =
+      `🆕 Новая группа: ШК ${barcode} + синоним ШК ${supplierBarcode}`;
+    cb.textContent = '🆕 Создать группу';
+    cb.style.display = '';
+  }
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeModal() { document.getElementById('confirmModal').classList.remove('show'); pendingAction = null; }
+
+// Кнопка "Создать группу" прямо в карточке вкладки "Одинаковые ШК"
+function sameBcAddToJson(barcode, name, index) {
+  if (!barcode) return;
+  if (!sharedData[barcode]) sharedData[barcode] = [name || barcode];
+  // Remove from sameBCPairs list
+  const sbp = window._sameBCPairs || [];
+  if (index >= 0 && index < sbp.length) sbp.splice(index, 1);
+  document.getElementById('statSameBC').textContent = sbp.length;
+  notifyChange(); editorRefreshDerivedState();
+  filterByView(currentView);
+}
+
+function confirmAction() {
+  if (!pendingAction) return;
+  const { barcode, name, supplierBarcode, supplierName, bc1inBase, bc2inBase, bc1jsonKey,
+          bc2jsonKey: bc2jk, sameBarcode } = pendingAction;
+
+  // sameBC with no JSON match → create new group (just the single barcode+name)
+  if (sameBarcode && !bc1inBase && !bc2inBase) {
+    if (!sharedData[barcode]) sharedData[barcode] = [name || barcode];
+    const sbp = window._sameBCPairs || [];
+    const idx2 = sbp.findIndex(r => r.barcode === barcode);
+    if (idx2 >= 0) sbp.splice(idx2, 1);
+    document.getElementById('statSameBC').textContent = sbp.length;
+    notifyChange(); editorRefreshDerivedState();
+    closeModal(); filterByView(currentView); return;
+  }
+
+  if (bc1inBase && bc2inBase && bc1jsonKey !== bc2jk) {
+    // Слияние двух JSON-групп: всё из bc2jk переносим в bc1jsonKey, bc2jk удаляем
+    const arr1 = sharedData[bc1jsonKey] || [];
+    const arr2 = sharedData[bc2jk]     || [];
+    const allBarcodes = new Set([bc1jsonKey, ...arr1.slice(1), bc2jk, ...arr2.slice(1)].map(s=>String(s).trim()).filter(Boolean));
+    allBarcodes.delete(bc1jsonKey); // главный ключ не добавляем как синоним
+    sharedData[bc1jsonKey] = [arr1[0] || arr2[0] || '', ...allBarcodes];
+    delete sharedData[bc2jk];
+
+  } else if (!bc1inBase && bc2inBase) {
+    // barcode из прайса → синоним в существующую JSON-группу bc2jk
+    const arr = sharedData[bc2jk];
+    if (arr) {
+      const syns = arr.slice(1).map(s=>String(s).trim()).filter(Boolean);
+      if (!syns.includes(barcode)) sharedData[bc2jk] = [arr[0]||'', ...syns, barcode];
+    }
+
+  } else if (bc1inBase && !bc2inBase) {
+    // supplierBarcode из другого прайса → синоним в существующую JSON-группу bc1jsonKey
+    const arr = sharedData[bc1jsonKey];
+    if (arr) {
+      const syns = arr.slice(1).map(s=>String(s).trim()).filter(Boolean);
+      if (!syns.includes(supplierBarcode)) sharedData[bc1jsonKey] = [arr[0]||'', ...syns, supplierBarcode];
+    }
+
+  } else {
+    // Ни один не в JSON → создаём новую группу
+    if (!sharedData[barcode]) {
+      sharedData[barcode] = [name, supplierBarcode];
+    } else {
+      // barcode уже есть (добавили раньше в этой сессии) — дописываем синоним
+      const syns = sharedData[barcode].slice(1).map(s=>String(s).trim()).filter(Boolean);
+      if (!syns.includes(supplierBarcode)) sharedData[barcode] = [sharedData[barcode][0]||name, ...syns, supplierBarcode];
+    }
+  }
+
+  const active = window._activePairs || [];
+  const idx = active.findIndex(r => r.barcode === barcode && r.supplierBarcode === supplierBarcode);
+  if (idx >= 0) active.splice(idx, 1);
+  addedItems.unshift(pendingAction);
+
+  document.getElementById('statTotal').textContent = active.length;
+  document.getElementById('statAdded').textContent = addedItems.length;
+
+  notifyChange();
+  editorRefreshDerivedState();
+  closeModal();
+  filterByView(currentView);
+}
+
+// =============================================================================
+// ===== РЕДАКТОР СИНОНИМОВ =====
+// =============================================================================
+
+// DOM refs
+const editorSearchInput = document.getElementById('searchInput');
+const editorExportExcelBtn = document.getElementById('exportExcelBtn');
+const editorImportExcelBtn = document.getElementById('importExcelBtn');
+const editorClearBtn = document.getElementById('clearBtn');
+const editorExcelImportInput = document.getElementById('excelImportInput');
+const editorGroupsContainer = document.getElementById('groupsContainer');
+const editorInfoPanel = document.getElementById('editorInfoPanel');
+const editorNewMainBarcodeEl = document.getElementById('newMainBarcode');
+const editorNewGroupNameEl = document.getElementById('newGroupName');
+const editorNewSynonymsEl = document.getElementById('newSynonyms');
+const editorCreateGroupBtn = document.getElementById('createGroupBtn');
+const editorClearNewGroupBtn = document.getElementById('clearNewGroupBtn');
+
+// ─── helpers ───
+function normBC(v){return String(v??'').trim();}
+function normName(v){return String(v??'').trim();}
+function splitSyns(text){const r=String(text??'').trim();return r?r.split(',').map(s=>s.trim()).filter(Boolean):[];}
+function safeId(str){try{return btoa(unescape(encodeURIComponent(String(str??'')))).replaceAll('=','').replaceAll('+','-').replaceAll('/','_');}catch(e){return String(str).replace(/[^a-zA-Z0-9_-]/g,'_');}}
+function escH(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
+function escV(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');}
+function enc(s){return encodeURIComponent(String(s??''));}
+function dec(s){return decodeURIComponent(String(s??''));}
+function bcLookupUrl(bc){return'https://barcode-list.ru/barcode/RU/%D0%9F%D0%BE%D0%B8%D1%81%D0%BA.htm?barcode='+encodeURIComponent(normBC(bc));}
+function openBcLookup(bc){const w=window.open(bcLookupUrl(bc),'_blank');try{if(w)w.opener=null;}catch(e){}}
+
+// ─── save dialog ───
+async function editorSaveDialog(blob,name,mime,ext,desc){
+  if(document.activeElement?.blur)document.activeElement.blur();
+  if('showSaveFilePicker' in window){try{const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:desc,accept:{[mime]:[ext]}}]});const w=await h.createWritable();await w.write(blob);await w.close();return;}catch(e){if(e?.name==='AbortError')return;}}
+  saveAs(blob,name);
+}
+
+// ─── embedded data ───
+function editorTryLoadEmbedded(){
+  const el=document.getElementById('embeddedData');
+  if(!el)return false;
+  const txt=(el.textContent||'').trim();
+  if(!txt||txt==='{}')return false;
+  try{const d=JSON.parse(txt);if(d&&typeof d==='object'){sharedData=d;return true;}}catch(e){}
+  return false;
+}
+
+// ─── conflicts ───
+function editorComputeConflicts(data){
+  const cg=new Set(),b2g=new Map();
+  for(const mb of Object.keys(data)){
+    const arr=data[mb],all=[mb,...(arr||[]).slice(1)];
+    for(const bc of all){const b=normBC(bc);if(!b)continue;if(!b2g.has(b))b2g.set(b,new Set());b2g.get(b).add(mb);}
+  }
+  for(const s of b2g.values())if(s.size>1)for(const g of s)cg.add(g);
+  return cg;
+}
+
+function editorRefreshDerivedState(){
+  editorConflicts=editorComputeConflicts(sharedData);
+  editorUpdateUI();
+  editorRenderGroups();
+}
+
+// ─── new group ───
+function editorClearNewGroupInputs(){editorNewMainBarcodeEl.value='';editorNewGroupNameEl.value='';editorNewSynonymsEl.value='';editorNewGroupNameEl.focus();}
+function editorSaveNewGroup(){
+  const mb=normBC(editorNewMainBarcodeEl.value),gn=normName(editorNewGroupNameEl.value),st=editorNewSynonymsEl.value;
+  if(!mb){alert('Введите главный штрихкод');return;}
+  if(sharedData[mb]){alert('Такая группа уже существует');return;}
+  sharedData[mb]=[gn,...splitSyns(st)];
+  editorClearNewGroupInputs();
+  notifyChange();
+  editorRefreshDerivedState();
+}
+
+// ─── row operations ───
+function editorApplyRenameAndName(oldMain,newMain,newName){
+  const ok=normBC(oldMain),nk=normBC(newMain);
+  if(!sharedData[ok])return null;
+  if(!nk){alert('Главный ШК не может быть пустым');return null;}
+  let ak=ok;
+  if(nk!==ok){if(sharedData[nk]){alert('Группа с таким ШК уже существует');return null;}sharedData[nk]=sharedData[ok];delete sharedData[ok];ak=nk;}
+  sharedData[ak][0]=normName(newName);
+  return ak;
+}
+function editorSaveRowFromEl(rowEl,oldMain,opts){
+  const ne=rowEl.querySelector('input[data-role="name"]'),me=rowEl.querySelector('input[data-role="main"]'),se=rowEl.querySelector('input[data-role="newSyn"]');
+  const newName=normName(ne?ne.value:''),newMain=normBC(me?me.value:oldMain),newSyn=normBC(se?se.value:'');
+  const ak=editorApplyRenameAndName(oldMain,newMain,newName);
+  if(!ak)return null;
+  if(!opts?.skipNewSyn&&newSyn){const arr=sharedData[ak],ex=new Set(arr.slice(1));if(!ex.has(newSyn))arr.push(newSyn);if(se)se.value='';}
+  return ak;
+}
+function editorDeleteGroup(key){const k=normBC(key);if(!confirm(`Удалить группу ${k}?`))return;delete sharedData[k];notifyChange();editorRefreshDerivedState();}
+function editorRemoveSynonym(key,syn){const k=normBC(key);if(!sharedData[k])return;const s=normBC(syn),arr=sharedData[k],i=arr.indexOf(s);if(i>=1)arr.splice(i,1);notifyChange();editorRefreshDerivedState();}
+
+// ─── render ───
+function editorRenderGroups(){
+  const keys=Object.keys(sharedData);
+  if(!keys.length){
+    editorGroupsContainer.innerHTML=`<div class="editor-empty"><div class="editor-empty-icon">📄</div><h3>Пусто</h3><p>Загрузите JSON или создайте новую группу.</p></div>`;
+    return;
+  }
+  let groups=keys;
+  if(editorSearchQuery){
+    groups=groups.filter(mb=>{const arr=sharedData[mb]||[''];const name=String(arr[0]||'').toLowerCase();const syns=(arr.slice(1)||[]).map(s=>String(s).toLowerCase());return String(mb).toLowerCase().includes(editorSearchQuery)||name.includes(editorSearchQuery)||syns.some(s=>s.includes(editorSearchQuery));});
+  }
+  groups.sort((a,b)=>{const na=String((sharedData[a]||[''])[0]).toLowerCase(),nb=String((sharedData[b]||[''])[0]).toLowerCase();if(na<nb)return -1;if(na>nb)return 1;return a<b?-1:a>b?1:0;});
+  if(!groups.length){editorGroupsContainer.innerHTML=`<div class="editor-empty"><div class="editor-empty-icon">🔎</div><h3>Ничего не найдено</h3><p>Попробуйте изменить запрос.</p></div>`;return;}
+  let html='';
+  for(const mb of groups){
+    const arr=sharedData[mb]||[''],name=arr[0]||'',syns=arr.slice(1)||[],hc=editorConflicts.has(mb),safe=safeId(mb);
+    html+=`<div class="editor-row ${hc?'has-conflict':''}" id="erow-${safe}" data-main="${enc(mb)}"><div class="editor-grid">
+      <input class="inp inp-name" type="text" data-role="name" value="${escV(name)}" placeholder="Категория" />
+      <div class="main-cell"><input class="inp inp-mono" type="text" data-role="main" value="${escV(mb)}" placeholder="Главный ШК" /><a class="loupe-link" href="${escV(bcLookupUrl(mb))}" target="_blank" rel="noopener" data-action="openLookupMain" title="Проверить ШК">🔍</a></div>
+      <div class="synonyms-cell" title="${escV(syns.join(', '))}">
+        ${syns.map(syn=>`<span class="synonym-pill syn-link" role="link" tabindex="0" data-action="openLookupSyn" data-barcode="${enc(syn)}" title="${escV(syn)}">${escH(syn)}<button class="synonym-remove" type="button" data-action="removeSyn" data-main="${enc(mb)}" data-syn="${enc(syn)}" title="Удалить">×</button></span>`).join('')}
+      </div>
+      <input class="inp inp-mono" type="text" data-role="newSyn" placeholder="Добавить синоним" />
+      <button class="btn btn-success btn-disk" type="button" data-action="saveRow" data-main="${enc(mb)}" title="Сохранить">💾</button>
+      <button class="btn btn-danger btn-del" type="button" data-action="deleteGroup" data-main="${enc(mb)}" title="Удалить">Удалить</button>
+    </div></div>`;
+  }
+  editorGroupsContainer.innerHTML=html;
+}
+
+// ─── delegated events ───
+editorGroupsContainer.addEventListener('click', e=>{
+  const rm=e.target.closest('button[data-action="removeSyn"]');
+  if(rm){const main=dec(rm.dataset.main),rowEl=rm.closest('.editor-row');if(!rowEl)return;const ak=editorSaveRowFromEl(rowEl,main,{skipNewSyn:true});if(!ak)return;editorRemoveSynonym(ak,dec(rm.dataset.syn));return;}
+  const btn=e.target.closest('button[data-action]');
+  if(btn){const action=btn.dataset.action,main=dec(btn.dataset.main),rowEl=btn.closest('.editor-row');if(!rowEl)return;
+    if(action==='saveRow'){const ak=editorSaveRowFromEl(rowEl,main,{skipNewSyn:false});if(ak){notifyChange();editorRefreshDerivedState();}return;}
+    if(action==='deleteGroup'){const ak=editorSaveRowFromEl(rowEl,main,{skipNewSyn:true});if(!ak)return;editorDeleteGroup(ak);return;}
+  }
+  const loupe=e.target.closest('a[data-action="openLookupMain"]');
+  if(loupe){e.preventDefault();const rowEl=loupe.closest('.editor-row');if(!rowEl)return;const mi=rowEl.querySelector('input[data-role="main"]');openBcLookup(mi?mi.value:dec(rowEl.dataset.main));return;}
+  const syn=e.target.closest('[data-action="openLookupSyn"]');
+  if(syn){openBcLookup(dec(syn.dataset.barcode));return;}
+});
+editorGroupsContainer.addEventListener('keydown', e=>{
+  const sp=e.target.closest('[data-action="openLookupSyn"]');
+  if(sp&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openBcLookup(dec(sp.dataset.barcode));return;}
+  const inp=e.target.closest('input[data-role="newSyn"]');
+  if(!inp||e.key!=='Enter')return;
+  e.preventDefault();const rowEl=inp.closest('.editor-row');if(!rowEl)return;
+  const main=dec(rowEl.dataset.main),ak=editorSaveRowFromEl(rowEl,main,{skipNewSyn:false});
+  if(ak){notifyChange();editorRefreshDerivedState();}
+});
+
+// autosave
+const editorAutosaveTimers=new WeakMap();
+function editorDebounce(rowEl,fn,delay){if(!rowEl)return;if(editorAutosaveTimers.has(rowEl))clearTimeout(editorAutosaveTimers.get(rowEl));editorAutosaveTimers.set(rowEl,setTimeout(fn,delay));}
+editorGroupsContainer.addEventListener('input', e=>{
+  const ni=e.target.closest('input[data-role="name"]');if(!ni)return;
+  const rowEl=ni.closest('.editor-row');if(!rowEl)return;
+  const main=normBC(dec(rowEl.dataset.main));if(!sharedData[main])return;
+  editorDebounce(rowEl,()=>{if(!sharedData[main])return;sharedData[main][0]=normName(ni.value);},250);
+});
+editorGroupsContainer.addEventListener('keydown', e=>{
+  const mi=e.target.closest('input[data-role="main"]');if(!mi||e.key!=='Enter')return;e.preventDefault();mi.blur();
+});
+editorGroupsContainer.addEventListener('blur', e=>{
+  const mi=e.target.closest('input[data-role="main"]');
+  if(mi){const rowEl=mi.closest('.editor-row');if(!rowEl)return;const om=dec(rowEl.dataset.main);const ak=editorSaveRowFromEl(rowEl,om,{skipNewSyn:true});if(ak){notifyChange();editorRefreshDerivedState();}return;}
+  const ni=e.target.closest('input[data-role="newSyn"]');
+  if(ni){const rowEl=ni.closest('.editor-row');if(!rowEl)return;const v=normBC(ni.value);if(!v)return;const om=dec(rowEl.dataset.main);const ak=editorSaveRowFromEl(rowEl,om,{skipNewSyn:false});if(ak){notifyChange();editorRefreshDerivedState();}return;}
+},true);
+
+// ─── UI ───
+function editorUpdateUI(){
+  const has=sharedData&&Object.keys(sharedData).length>0;
+  editorSearchInput.disabled=!has;
+  editorExportExcelBtn.disabled=!has;
+  editorClearBtn.disabled=!has;
+  if(!has){editorInfoPanel.style.display='none';['groupCount','synonymCount','barcodeCount','conflictCount'].forEach(id=>document.getElementById(id).textContent='0');return;}
+  editorInfoPanel.style.display='grid';
+  let gcount=Object.keys(sharedData).length,scount=0;
+  const allbc=new Set();
+  for(const mb of Object.keys(sharedData)){allbc.add(mb);const a=sharedData[mb]||[''];const s=a.slice(1)||[];scount+=s.length;for(const x of s)allbc.add(x);}
+  document.getElementById('groupCount').textContent=String(gcount);
+  document.getElementById('synonymCount').textContent=String(scount);
+  document.getElementById('barcodeCount').textContent=String(allbc.size);
+  document.getElementById('conflictCount').textContent=String(editorConflicts.size);
+}
+
+// ─── Excel export ───
+async function editorExportExcel(){
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('Synonyms');
+  ws.addRow(['Главный ШК','Категория','Синонимы']);
+  Object.keys(sharedData).forEach(mb=>{const a=sharedData[mb]||[''];ws.addRow([mb,a[0]||'',(a.slice(1)||[]).join(', ')]);});
+  ws.columns.forEach((c,i)=>{c.width=i===0?22:i===1?40:60;});
+  const hr=ws.getRow(1);hr.font={bold:true};hr.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE0E0E0'}};
+  ws.eachRow(r=>{r.eachCell(c=>{c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};});});
+  const buf=await wb.xlsx.writeBuffer();
+  const now=new Date(),ts=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  await editorSaveDialog(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`synonyms-${ts}.xlsx`,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.xlsx','Excel');
+}
+
+// ─── Excel import ───
+function editorHandleExcelImport(e){
+  const file=e.target.files?.[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{try{
+    const data=new Uint8Array(ev.target.result),wb=XLSX.read(data,{type:'array'}),fs=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(fs,{header:1});
+    if(!rows||rows.length<2){alert('Excel пустой');return;}
+    rows.slice(1).forEach(row=>{const mb=normBC(row?.[0]),name=normName(row?.[1]),sr=String(row?.[2]??'').trim();if(!mb)return;const syns=sr?sr.split(',').map(s=>s.trim()).filter(Boolean):[];if(!sharedData[mb]){sharedData[mb]=[name,...syns];return;}const arr=sharedData[mb];if(name)arr[0]=name;const ex=new Set(arr.slice(1));syns.forEach(s=>{if(!ex.has(s)){arr.push(s);ex.add(s);}});});
+    alert('Импорт Excel завершён.');notifyChange();editorRefreshDerivedState();
+  }catch(err){console.error(err);alert('Ошибка импорта Excel.');}finally{editorExcelImportInput.value='';}};
+  reader.onerror=()=>{alert('Ошибка чтения Excel.');editorExcelImportInput.value='';};
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── clear ───
+function editorClearAll(){if(!confirm('Очистить всё?'))return;sharedData={};editorConflicts=new Set();editorSearchQuery='';editorExcelImportInput.value='';editorSearchInput.value='';setGlobalJsonStatus('','Файл не загружен');document.getElementById('globalChangesBadge').classList.remove('show');document.getElementById('jsonStatusBox').classList.remove('loaded');document.getElementById('matcherJsonStatus').textContent='Не загружена';document.getElementById('matcherJsonStatus').style.color='#8e8e93';editorClearNewGroupInputs();changesCount=0;editorRefreshDerivedState();}
+
+// ─── wiring ───
+editorSearchInput.addEventListener('input', e=>{editorSearchQuery=(e.target.value||'').toLowerCase().trim();editorRenderGroups();});
+editorExportExcelBtn.addEventListener('click', editorExportExcel);
+editorImportExcelBtn.addEventListener('click', ()=>editorExcelImportInput.click());
+editorExcelImportInput.addEventListener('change', editorHandleExcelImport);
+editorClearBtn.addEventListener('click', editorClearAll);
+editorCreateGroupBtn.addEventListener('click', editorSaveNewGroup);
+editorClearNewGroupBtn.addEventListener('click', editorClearNewGroupInputs);
+[editorNewGroupNameEl, editorNewMainBarcodeEl, editorNewSynonymsEl].forEach(el=>{el.addEventListener('keypress',e=>{if(e.key==='Enter'){e.preventDefault();editorSaveNewGroup();}});});
+
+// Modal backdrop
+document.getElementById('confirmModal').addEventListener('click', function(e){if(e.target===this)closeModal();});
+
+// Nav active state
+(function(){const href=location.href;document.querySelectorAll('.global-nav__link').forEach(a=>{const m=a.getAttribute('data-match')||'';if(m&&href.includes(m))a.classList.add('is-active');});})();
+
+// ─── init ───
+(function init(){
+  const loaded=editorTryLoadEmbedded();
+  if(loaded){
+    setGlobalJsonStatus('ok',`✓ Загружено из HTML: ${Object.keys(sharedData).length} записей`);
+    onSharedDataLoaded();
+  } else {
+    editorRefreshDerivedState();
+  }
+})();
+</script>
+</body>
+</html>
